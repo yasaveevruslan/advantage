@@ -305,11 +305,11 @@ ul {
 }
 
 .prev {
-    left: 80px;
+    left: 30px;
 }
 
 .next {
-    right: 80px;
+    right: 30px;
 }
 
 .new {
@@ -469,7 +469,6 @@ ul {
     max-width: 1300px;
     height: 348px;
     background-image: url('../image/skidka.png');
-    margin-top: 80px;
     border-radius: 20px;
     padding: 40px;
 }
@@ -1774,7 +1773,7 @@ input[type="checkbox"]:checked::after {
 }
 
 h3.container.reg_title {
-    padding-top: 80px;
+    padding-top: 40px;
 }
 
 .registr {

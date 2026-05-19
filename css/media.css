@@ -1242,16 +1242,19 @@
     }
 
     .head2 {
-        gap: 20px;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
     }
 
     #korzina {
-        font-size: 14px;
+        font-size: 12px;
     }
 
     #voiti {
-        font-size: 14px;
-    }
+        font-size: 12px !important;
+        padding: 5px 10px;
+    }   
 
     .burger-btn {
         width: 40px;

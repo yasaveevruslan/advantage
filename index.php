@@ -1,3 +1,21 @@
+<?php
+    session_start();
+    include('php/connect.php');
+
+    $page = isset($_GET['page']) ? $_GET['page'] : 'main';
+
+    function includePage($page)
+    {
+        $filePath = 'pages/' . $page . '.php';
+        if(file_exists($filePath)){
+            include($filePath);
+        }
+        else{
+            echo "<h1>Страница не найдена</h1>";
+        }
+    }
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -11,459 +29,154 @@
 </head>
 
 <body>
-    <?php include('php/header.php') ?>
-    <?php include('php/connect.php') ?>
+    <!-- шапка -->
+    <?php include('includes/header.php') ?>
 
-     <?php
-            if(isset($_GET['page'])){
-                $page = $_GET['page'];
-                if($page == 'reg'){include('pages/reg.php');}
-                if($page == 'auth'){include('pages/auth.php');}
-            }else{
-                include('pages/catalog.php');
-            }
-        ?>
+    <?php
+    switch($page) {
+        
+        //  ГЛАВНАЯ СТРАНИЦА 
+        case 'main':
+            includePage('main');
+            break;
 
-  
-
-   
-
-    <!-- баннер -->
-    <div class="banner">
-        <div class="slider">
-            <!-- Контейнер, который содержит все слайды -->
-            <div class="slides">
-                <div class="slide"><img src="image/banner.png" alt=""></div>
-                <div class="slide"><img src="image/banner2.png" alt=""></div>
-                <div class="slide"><img src="image/banner3.png" alt=""></div>
-            </div>
-
-            <!-- Кнопки управления слайдером -->
-            <button class="prev"><img src="image/levo.png" alt=""></button>
-            <button class="next"><img src="image/pravo.png" alt=""></button>
-
-            <!-- Текст поверх слайдера (один и тот же для всех слайдов) -->
-            <div class="banner_text container">
-                <h1>Доставка правильного питания</h1>
-                <p>Подарите себе стройность, крепкий иммунитет и энергию со здоровым питанием</p>
-                <a href="">Заказать</a>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Находим контейнер со слайдами
-        const slides = document.querySelector('.slides');
-
-        // Определяем количество слайдов
-        const slideCount = document.querySelectorAll('.slide').length;
-
-        // Находим кнопки «Назад» и «Вперёд»
-        const prevButton = document.querySelector('.prev');
-        const nextButton = document.querySelector('.next');
-
-        let currentIndex = 0; // Переменная для хранения текущего слайда
-
-        // Функция смены слайдов
-        function goToSlide(index) {
-            if (index < 0) {
-                index = slideCount - 1; // Если нажали «Назад» на первом слайде, переходим на последний
-            } else if (index >= slideCount) {
-                index = 0; // Если нажали «Вперёд» на последнем слайде, переходим на первый
-            }
-
-            currentIndex = index; // Запоминаем текущий слайд
-            slides.style.transform = `translateX(${-index * 100}%)`; // Сдвигаем контейнер со слайдами
-        }
-
-        // Добавляем обработчик клика для кнопки «Назад»
-        prevButton.addEventListener('click', () => {
-            goToSlide(currentIndex - 1);
-        });
-
-        // Добавляем обработчик клика для кнопки «Вперёд»
-        nextButton.addEventListener('click', () => {
-            goToSlide(currentIndex + 1);
-        });
-
-        // Устанавливаем первый активный слайд при загрузке страницы
-        goToSlide(0);
-    </script>
-
-    <!-- преимущества -->
-    <div class="adv container">
-        <h3>Как это работает</h3>
-        <div class="advant">
-            <div class="adv1">
-                <img src="image/adv1.svg" alt="Вилка и нож">
-                <h4>Выбери кол-во блюд</h4>
-                <p>В зависимости от потребностей<br>
-                    и любые ингредиенты</p>
-            </div>
-            <div class="adv1">
-                <img src="image/adv2.svg" alt="Доставка">
-                <h4>Получи еду</h4>
-                <p>Наш курьер бесплатно<br>
-                    доставит еду</p>
-            </div>
-            <div class="adv1">
-                <img src="image/adv3.svg" alt="Наслаждайся">
-                <h4>Наслаждайся</h4>
-                <p>Просто разогрей<br>
-                    в микроволновке и сэкономь</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- скидка -->
-    <div class="skidka container">
-        <h4>Скидка 25%
-            на первый заказ уже</h4>
-        <div class="prom">
-            <p>Промокод</p>
-            <a href="">Вкусно</a>
-        </div>
-        <h6>При заказе от 2 500 ₽</h6>
-    </div>
-
-    <!-- новинки -->
-    <div class="new container">
-        <h3>Новинки</h3>
-        <div class="nowinki">
-            <div class="new1">
-                <img src="image/new1.png" alt="">
-                <h5>Куриный шницель с мака...</h5>
-
-                <div class="kal">
-                    <div class="k">
-                        <p id="or">450</p>
-                        <p id="s">ккал</p>
-                    </div>
-                    <div class="k">
-                        <p id="si">35</p>
-                        <p id="s">белков</p>
-                    </div>
-                    <div class="k">
-                        <p id="kr">15</p>
-                        <p id="s">жиров</p>
-                    </div>
-                    <div class="k">
-                        <p id="ze">40</p>
-                        <p id="s">углеводов</p>
-                    </div>
-                </div>
-
-                <h6>890 ₽</h6>
-                <a href="">В корзину</a>
-
-            </div>
-            <div class="new1">
-                <img src="image/new2.png" alt="">
-                <h5>Куриный шницель с мака...</h5>
-
-                <div class="kal">
-                    <div class="k">
-                        <p id="or">450</p>
-                        <p id="s">ккал</p>
-                    </div>
-                    <div class="k">
-                        <p id="si">35</p>
-                        <p id="s">белков</p>
-                    </div>
-                    <div class="k">
-                        <p id="kr">15</p>
-                        <p id="s">жиров</p>
-                    </div>
-                    <div class="k">
-                        <p id="ze">40</p>
-                        <p id="s">углеводов</p>
-                    </div>
-                </div>
-
-                <h6>890 ₽</h6>
-                <a href="">В корзину</a>
-
-            </div>
-            <div class="new1">
-                <img src="image/new3.png" alt="">
-                <h5>Куриный шницель с мака...</h5>
-
-                <div class="kal">
-                    <div class="k">
-                        <p id="or">450</p>
-                        <p id="s">ккал</p>
-                    </div>
-                    <div class="k">
-                        <p id="si">35</p>
-                        <p id="s">белков</p>
-                    </div>
-                    <div class="k">
-                        <p id="kr">15</p>
-                        <p id="s">жиров</p>
-                    </div>
-                    <div class="k">
-                        <p id="ze">40</p>
-                        <p id="s">углеводов</p>
-                    </div>
-                </div>
-
-                <h6>890 ₽</h6>
-                <a href="">В корзину</a>
-
-            </div>
-            <div class="new1">
-                <img src="image/new4.png" alt="">
-                <h5>Куриный шницель с мака...</h5>
-
-                <div class="kal">
-                    <div class="k">
-                        <p id="or">450</p>
-                        <p id="s">ккал</p>
-                    </div>
-                    <div class="k">
-                        <p id="si">35</p>
-                        <p id="s">белков</p>
-                    </div>
-                    <div class="k">
-                        <p id="kr">15</p>
-                        <p id="s">жиров</p>
-                    </div>
-                    <div class="k">
-                        <p id="ze">40</p>
-                        <p id="s">углеводов</p>
-                    </div>
-                </div>
-
-                <h6>890 ₽</h6>
-                <a href="">В корзину</a>
-
-            </div>
-        </div>
-    </div>
-
-    <!-- Вопросы -->
-    <div class="faq-card container">
-        <h3>Часто задаваемые вопросы</h3>
-
-        <!-- все вопросы в одном блоке (один общий список) -->
-        <div class="question-item">
-            <div class="question-header">
-                <span class="question-text">Как понять что и когда есть?</span>
-                <span class="toggle-icon">🞢</span>
-            </div>
-            <div class="answer">
-                <div class="answer-content">
-                    <p>Ориентируйтесь на этикетку продукта и рекомендации по приёму пищи. Обычно на упаковке указано
-                        оптимальное время употребления (завтрак, обед или перекус). Также можно следовать личным
-                        ощущениям голода и режиму дня.</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="question-item">
-            <div class="question-header">
-                <span class="question-text">Как часто употреблять рационы?</span>
-                <span class="toggle-icon">🞢</span>
-            </div>
-            <div class="answer">
-                <div class="answer-content">
-                    <p>Рационы разработаны для ежедневного сбалансированного питания. Рекомендуем употреблять 1–2 порции
-                        в день в зависимости от ваших целей (поддержание формы или активный образ жизни). Для точных
-                        рекомендаций лучше проконсультироваться с диетологом.</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="question-item">
-            <div class="question-header">
-                <span class="question-text">Кто занимается составлением каталога?</span>
-                <span class="toggle-icon">🞢</span>
-            </div>
-            <div class="answer">
-                <div class="answer-content">
-                    <p>Каталог составляют профессиональные нутрициологи и технологи пищевого производства. Каждое блюдо
-                        проходит проверку на баланс белков, жиров и углеводов, а также на вкусовые качества.</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="question-item">
-            <div class="question-header">
-                <span class="question-text">Как часто обновляется каталог?</span>
-                <span class="toggle-icon">🞢</span>
-            </div>
-            <div class="answer">
-                <div class="answer-content">
-                    <p>Каталог обновляется каждый сезон (раз в 3–4 месяца). Мы добавляем новые позиции, учитывая
-                        сезонные продукты и пожелания клиентов. Следите за новостями на сайте.</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="question-item">
-            <div class="question-header">
-                <span class="question-text">Могу ли я заменить или исключить блюдо?</span>
-                <span class="toggle-icon">🞢</span>
-            </div>
-            <div class="answer">
-                <div class="answer-content">
-                    <p>Да, вы можете заменить блюдо на равноценное из каталога или исключить ингредиент при оформлении
-                        заказа (если есть аллергия). Для индивидуальной замены свяжитесь с нашей поддержкой — поможем
-                        подобрать альтернативу.</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="question-item">
-            <div class="question-header">
-                <span class="question-text">Могу ли я заказать у вас домашнюю еду?</span>
-                <span class="toggle-icon">🞢</span>
-            </div>
-            <div class="answer">
-                <div class="answer-content">
-                    <p>Да, в нашем ассортименте есть полноценные готовые рационы, которые готовятся как домашняя еда —
-                        без консервантов, с натуральными продуктами. Вы можете выбрать набор на неделю или разовое
-                        блюдо.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script>
-        (function () {
-            // все вопросы (один блок)
-            const allQuestions = document.querySelectorAll('.question-item');
-
-            allQuestions.forEach(item => {
-                const header = item.querySelector('.question-header');
-                const iconSpan = item.querySelector('.toggle-icon');
-
-                // клик по заголовку вопроса
-                header.addEventListener('click', () => {
-                    // переключаем класс open
-                    const isOpen = item.classList.contains('open');
-
-                    if (isOpen) {
-                        // закрываем
-                        item.classList.remove('open');
-                        if (iconSpan) iconSpan.textContent = '🞢';
-                    } else {
-                        // открываем
-                        item.classList.add('open');
-                        if (iconSpan) iconSpan.textContent = '✕';
-                    }
-                });
-
-                // на старте проверяем, что все закрыты и иконки плюсы
-                if (!item.classList.contains('open')) {
-                    if (iconSpan) iconSpan.textContent = '🞢';
-                } else {
-                    if (iconSpan) iconSpan.textContent = '✕';
-                }
-            });
-        })();
-    </script>
-
-    <!-- Карта--------------------------------------------------------------- -->
-
-    <div class="map-fullwidth">
-        <div class="map-container container">
-            <div class="ost_vopr">
-                <h6>Остались вопросы?</h6>
-                <p>Оставьте свои контакты, и мы вам перезвоним</p>
-                <form action="">
-                    <label for="">Номер телефона</label>
-                    <input type="text" placeholder="+7 (999) 999-99-99">
-                    <label for="">Пароль</label>
-                    <input type="text" placeholder="Введите пароль">
-                </form>
-                <p>Нажимая на кнопку «Отправить», я даю свое согласие на обработку персональных данных и соглашаюсь
-                    с условиями политики конфиденциальности.</p>
-                <button>Отправить</button>
-
-            </div>
-        </div>
-        <iframe class="fullwidth-map"
-            src="https://yandex.ru/map-widget/v1/?um=constructor%3Ad16ccccfa89085ad20c1fdf264095095c0b43b81ea89143f508526f9b059772c&amp;source=constructor"
-            frameborder="0">
-        </iframe>
-    </div>
+        //  КАТАЛОГ 
+        case 'catalog':
+            includePage('catalog');
+            break;
+        
+        //  ПОЛЬЗОВАТЕЛЬ 
+        case 'reg':
+            includePage('reg');
+            break;
+        case 'auth':
+            includePage('auth');
+            break;
+        case 'profile':
+            includePage('profile');
+            break;
+        case 'lk':
+            includePage('lk');
+            break;
+        case 'lk_izb':
+            includePage('lk_izb');
+            break;
+        case 'upd_profile':
+            includePage('upd_profile');
+            break;
+        case 'upd_password':
+            includePage('upd_password');
+            break;
+            
+        //  КАТАЛОГ 
+        case 'catalog_blud':
+            includePage('catalog_blud');
+            break;
+        case 'catalog_nabor':
+            includePage('catalog_nabor');
+            break;
+        case 'blud':
+            includePage('blud');
+            break;
+        case 'nabor':
+            includePage('nabor');
+            break;
+            
+        //  КОРЗИНА И ЗАКАЗЫ 
+        case 'korzina':
+            includePage('korzina');
+            break;
+        case 'zakaz_dost':
+            includePage('zakaz_dost');
+            break;
+            
+        //  ОТЗЫВЫ 
+        case 'otz':
+            includePage('otz');
+            break;
+        case 'dob_otz':
+            includePage('dob_otz');
+            break;
+        case 'otz_promocod':
+            includePage('otz_promocod');
+            break;
+            
+        //  АДРЕСА И ДОКУМЕНТЫ 
+        case 'dob_adres':
+            includePage('dob_adres');
+            break;
+        case 'doc':
+            includePage('doc');
+            break;
+            
+        //  АДМИНКА 
+        case 'admin_lk':
+            includePage('admin_lk');
+            break;
+        case 'admin_lk_otz':
+            includePage('admin_lk_otz');
+            break;
+        case 'admin_lk_promocod':
+            includePage('admin_lk_promocod');
+            break;
+            
+        // Админка - блюда
+        case 'admin_add_bl':
+            includePage('admin_add_bl');
+            break;
+        case 'admin_edit_bl':
+            includePage('admin_edit_bl');
+            break;
+        case 'admin_upd_bl':
+            includePage('admin_upd_bl');
+            break;
+        case 'admin_kat_bl':
+            includePage('admin_kat_bl');
+            break;
+        case 'admin_addkat_bl':
+            includePage('admin_addkat_bl');
+            break;
+        case 'admin_editkat_bl':
+            includePage('admin_editkat_bl');
+            break;
+            
+        // Админка - наборы
+        case 'admin_add_na':
+            includePage('admin_add_na');
+            break;
+        case 'admin_edit_na':
+            includePage('admin_edit_na');
+            break;
+        case 'admin_upd_na':
+            includePage('admin_upd_na');
+            break;
+        case 'admin_kat_na':
+            includePage('admin_kat_na');
+            break;
+        case 'admin_addkat_na':
+            includePage('admin_addkat_na');
+            break;
+        case 'admin_editkat_na':
+            includePage('admin_editkat_na');
+            break;
+            
+        // Админка - промокоды
+        case 'admin_addpromocod':
+            includePage('admin_addpromocod');
+            break;
+        case 'admin_editpromocod':
+            includePage('admin_editpromocod');
+            break;
+            
+        // Страница не найдена
+        default:
+            echo "<div class='container'><h1>404 - Страница не найдена</h1></div>";
+            break;
+    }
+    ?>
 
     <!-- футер -->
-    <footer>
-        <div class="foot container">
-            <div class="logo_f">
-                <img src="image/log_f.png" alt="">
-                <a href="tel:+79228805707">+7 (999) 999-99-99</a>
-            </div>
-            <div class="glav">
-                <p>Главная страница</p>
-                <a href="">Конструктор рациона</a>
-                <a href="">Подписка</a>
-                <a href="">Как это работает</a>
-                <a href="">Часто задаваемые вопросы</a>
-                <a href="">Остались вопросы?</a>
-            </div>
-
-            <div class="n_f">
-                <ul class="dolb">
-                    <li class="blu_f">
-                        <a href="#" class="bluda_f">Блюда <img src="image/spis.svg" alt=""></a>
-                        <ul class="spisok_blud_f">
-                            <li><a href="">Сбалансированное</a></li>
-                            <li><a href="">Фитнес</a></li>
-                            <li><a href="">Кето</a></li>
-                            <li><a href="">Веган</a></li>
-                            <li><a href="">Детокс</a></li>
-                            <li><a href="">Полезные десерты и снеки</a></li>
-                        </ul>
-                    </li>
-                    <li class="blu_f">
-                        <a href="#" class="bluda_f">Наборы <img src="image/spis.svg" alt=""></a>
-                        <ul class="spisok_blud_f">
-                            <li><a href="">Похудение</a></li>
-                            <li><a href="">Поддержание</a></li>
-                            <li><a href="">Набор массы</a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-
-            <div class="docum_f">
-                <p>Документация</p>
-                <a href="">О конфиденциальности</a>
-                <a href="">О сотрудничестве</a>
-                <a href="">Публичной оферты</a>
-                <a href="">Политика обработки данных</a>
-            </div>
-        </div>
-        <hr class="f_hr">
-        <div class="f_adel container">
-            <p>© Все права защищены, 2026.</p>
-            <p>Мингараева Аделя Наилевна</p>
-
-        </div>
-    </footer>
+    <?php include('includes/footer.php') ?>
 </body>
 
 </html>
-
-<script>
-    const burgerBtn = document.getElementById('burger-btn');
-    const closeBtn = document.getElementById('close-btn');
-    const mobileMenu = document.getElementById('mobile-menu');
-
-    burgerBtn.addEventListener('click', () => {
-        mobileMenu.classList.add('active');
-    });
-
-    closeBtn.addEventListener('click', () => {
-        mobileMenu.classList.remove('active');
-    });
-
-    // Закрытие при клике вне меню (опционально)
-    mobileMenu.addEventListener('click', (e) => {
-        if (e.target === mobileMenu) {
-            mobileMenu.classList.remove('active');
-        }
-    });
-</script>
