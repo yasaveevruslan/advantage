@@ -1,64 +1,41 @@
-<!-- Отзывы -->
+<?php
+    global $connect;
 
+    //(is_moderated = 1)
+    $stmt = $connect->prepare("
+        SELECT r.rating, r.comment, r.created_at, u.full_name 
+        FROM reviews r 
+        JOIN users u ON r.user_id = u.id 
+        WHERE r.is_moderated = 1 
+        ORDER BY r.created_at DESC
+    ");
+    $stmt->execute();
+    $reviews = $stmt->fetchAll();
+?>
+<!-- Отзывы -->
 <p id="hleb" class="container">Главная > Отзывы</p>
 
 <div class="otz container">
     <h3>Отзывы</h3>
 
+    <?php if (empty($reviews)): ?>
+    <p style="text-align:center; color:#666; padding:30px 0;">
+        Пока нет отзывов. <a href="index.php?page=dob_otz" style="color:#94D201;">Оставьте первый!</a>
+    </p>
+    <?php else: ?>
     <div class="otziv">
+        <?php foreach ($reviews as $rev): ?>
         <div class="ot1">
             <div class="name">
-                <h6>Аделя</h6>
-                <p>01.03.2026</p>
+                <h6><?= htmlspecialchars($rev['full_name'] ?: 'Пользователь') ?></h6>
+                <p><?= date('d.m.Y', strtotime($rev['created_at'])) ?></p>
+                <div class="rating-stars"><?= str_repeat('⭐', max(0, min(5, $rev['rating']))) ?></div>
             </div>
             <div class="o_txt">
-                <p>Попробовала двухдневку Детокс от левелкитчен. Должна сказать, что мне не просто понравилось, я
-                    получила заряд бодрости. Соки вкусные. Во всем теле возникла энергетика и легкость. Снижение
-                    веса было небольшое, но было. За два дня это тоже достижение. Но главное, конечно, хорошее
-                    самочувствие. Так что решила, что при общей программе в 1500 пара дней летокса в месяц просто
-                    отличная разрядка.</p>
-
+                <p><?= nl2br(htmlspecialchars($rev['comment'])) ?></p>
             </div>
         </div>
-        <div class="ot1">
-            <div class="name">
-                <h6>Юлия</h6>
-                <p>25.02.2026</p>
-            </div>
-            <div class="o_txt">
-                <p>Заказали с мамой пробники - даже не ожидали, что съедим все до крошечки и будем хитро друг на
-                    друга поглядывать, не осталось ли чего - поделить. Мой любимый омлет сделан на совесть. Я всегда
-                    ленюсь взбивать яйца в крутую пену, а хздесь постарались. И вкуснейший черничный крем.
-                    Тарталетка показалась совсем маленькой, хоть и по размерам ничего себе такая, на хороший
-                    перекус. В общем, убедили: не обязательно убиваться в кухне, можно просто заказать и получить
-                    приличную еду</p>
-
-
-            </div>
-        </div>
-        <div class="ot1">
-            <div class="name">
-                <h6>Карима</h6>
-                <p>14.02.2026</p>
-            </div>
-            <div class="o_txt">
-                <p>Офигенное место, отличная кухня, обалденные вишневые настойки, супер приветливый, дружелюбный<br>
-                    персонал Понравилось то, что в заведении чувствуешь себя «своим», чувствуешь что тебе рады,<br>
-                    однозначно рекомендую к посещению !❤️</p>
-
-
-            </div>
-        </div>
-        <div class="ot1">
-            <div class="name">
-                <h6>Лиза</h6>
-                <p>08.02.2026</p>
-            </div>
-            <div class="o_txt">
-                <p>Для ПП — вполне годный вариант, учитывая, что готовить не надо, а еда вкусна и разная</p>
-
-
-            </div>
-        </div>
+        <?php endforeach; ?>
     </div>
+    <?php endif; ?>
 </div>

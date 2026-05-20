@@ -1,22 +1,33 @@
+<?php
+global $connect;
+if (!isset($_SESSION['user_id'])) {
+    header('Location: index.php?page=auth');
+    exit;
+}
+
+$stmt = $connect->prepare("SELECT id, full_name, phone, email, role FROM users WHERE id = ?");
+$stmt->execute([$_SESSION['user_id']]);
+$user = $stmt->fetch();
+
+if (!$user) {
+    session_destroy();
+    header('Location: index.php?page=auth');
+    exit;
+}
+
+if ($_SESSION['user_role'] == 'admin') {
+    header('Location: index.php?page=admin_lk');
+    exit;
+}
+?>
+
 <div class="lich container">
-    <div class="l_v">
-        <div class="l_v_panel">
-            <h4>Личный кабинет</h4>
-            <p id="wel">Добро пожаловать, Мингараева Аделя!</p>
-        </div>
-        <a href="">Выйти</a>
-    </div>
+    <?php include('includes/l_V.php') ?>
 
     <div class="lk container">
-        <div class="lk_filter">
-            <a href="profile.html">Профиль</a>
-            <a href="lk.html">Заказы</a>
-            <a href="lk_izb.html" id="fil">Избранное</a>
-            <a href="">Подписка</a>
-        </div>
+        <?php include('includes/lk_filter.php') ?>
     </div>
 </div>
-
 
 <div class="izbr container">
     <h5>Избранное</h5>

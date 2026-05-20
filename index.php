@@ -1,4 +1,5 @@
 <?php
+    ob_start();
     session_start();
     include('php/connect.php');
 
@@ -38,11 +39,6 @@
         //  ГЛАВНАЯ СТРАНИЦА 
         case 'main':
             includePage('main');
-            break;
-
-        //  КАТАЛОГ 
-        case 'catalog':
-            includePage('catalog');
             break;
         
         //  ПОЛЬЗОВАТЕЛЬ 
@@ -176,7 +172,10 @@
     ?>
 
     <!-- футер -->
-    <?php include('includes/footer.php') ?>
+    <?php 
+        include('includes/footer.php');
+        ob_end_flush(); 
+    ?>
 </body>
 
 </html>

@@ -1,18 +1,97 @@
-  <div class="dobavit_bludo container">
-      <h3>Добавить промокод</h3>
-      <div class="dob_bl">
-          <form action="" class="bld">
-              <label for="">Название *</label>
-              <input type="text" placeholder="Введите название">
-              <label for="">Тип *</label>
-              <select name="kat" id="kat">
-                  <option value="">Процент 25% от цены</option>
-                  <option value="">Процент 10% от цены</option>
-                  <option value="">Бесплатная доставка</option>
-              </select>
-              <label for="">От цены *</label>
-              <input type="text" placeholder="Введите цену">
-              <a href="" class="dob_bl_a">Добавить</a>
-          </form>
-      </div>
-  </div>
+<?php
+if (!isset($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'admin') {
+    header('Location: index.php?page=auth');
+    exit;
+}
+
+global $connect;
+$errors = [];
+
+if (isset($_POST['add_promo'])) {
+    $code = strtoupper(trim($_POST['code'] ?? ''));
+    $discount_type = $_POST['discount_type'] ?? '';
+    $discount_value = floatval(str_replace(',', '.', $_POST['discount_value'] ?? 0));
+    $min_order = floatval(str_replace(',', '.', $_POST['min_order'] ?? 0));
+    $valid_until = $_POST['valid_until'] !== '' ? $_POST['valid_until'] : null;
+    $usage_limit = intval($_POST['usage_limit'] ?? 0);
+    
+    $is_active = isset($_POST['is_active']) ? 1 : 0;
+
+    if ($code === '') $errors['code'] = 'Введите код промокода';
+    if (!in_array($discount_type, ['percentage', 'fixed'])) $errors['discount_type'] = 'Выберите тип скидки';
+    if ($discount_type === 'percentage' && ($discount_value <= 0 || $discount_value > 100)) {
+        $errors['discount_value'] = 'Процент должен быть от 1 до 100';
+    }
+    if ($discount_type === 'fixed' && $discount_value <= 0) {
+        $errors['discount_value'] = 'Введите сумму скидки';
+    }
+
+    if (empty($errors)) {
+        $check = $connect->prepare("SELECT id FROM promocodes WHERE code = ?");
+        $check->execute([$code]);
+        
+        if ($check->fetch()) {
+            $errors['code'] = 'Такой промокод уже существует';
+        } else {
+            $stmt = $connect->prepare("INSERT INTO promocodes (code, discount_type, discount_value, min_order, valid_until, usage_limit, used_count, is_active) VALUES (?, ?, ?, ?, ?, ?, 0, ?)");
+            
+            if ($stmt->execute([$code, $discount_type, $discount_value, $min_order, $valid_until, $usage_limit, $is_active])) {
+                header('Location: index.php?page=admin_lk_promocod');
+                exit;
+            } else {
+                $errors['general'] = 'Ошибка сохранения: ' . $connect->errorInfo()[2];
+            }
+        }
+    }
+}
+?>
+
+<div class="dobavit_bludo container">
+    <h3>Добавить промокод</h3>
+    <div class="dob_bl">
+        <form action="" class="bld" method="POST">
+            <label for="code">Название *</label>
+            <input type="text" id="code" name="code" placeholder="Например: СПАСИБО10"
+                value="<?= htmlspecialchars($_POST['code'] ?? '') ?>">
+            <?php if(!empty($errors['code'])): ?><p class="error"><?= $errors['code'] ?></p><?php endif; ?>
+
+            <label for="discount_type">Тип скидки *</label>
+            <select name="discount_type" id="discount_type">
+                <option value=""
+                    <?= (!isset($_POST['discount_type']) || $_POST['discount_type'] === '') ? 'selected' : '' ?>>—
+                    Выберите тип —</option>
+                <option value="percentage" <?= ($_POST['discount_type'] ?? '') === 'percentage' ? 'selected' : '' ?>>
+                    Процент (%)</option>
+                <option value="fixed" <?= ($_POST['discount_type'] ?? '') === 'fixed' ? 'selected' : '' ?>>Фиксированная
+                    сумма (₽)</option>
+            </select>
+            <?php if(!empty($errors['discount_type'])): ?><p class="error"><?= $errors['discount_type'] ?></p>
+            <?php endif; ?>
+
+            <label for="discount_value">Размер скидки *</label>
+            <input type="number" id="discount_value" name="discount_value" placeholder="10" step="0.01"
+                value="<?= htmlspecialchars($_POST['discount_value'] ?? '') ?>">
+            <?php if(!empty($errors['discount_value'])): ?><p class="error"><?= $errors['discount_value'] ?></p>
+            <?php endif; ?>
+
+            <label for="min_order">Минимальная сумма заказа *</label>
+            <input type="number" id="min_order" name="min_order" placeholder="1500" step="0.01"
+                value="<?= htmlspecialchars($_POST['min_order'] ?? '0') ?>">
+
+            <label for="valid_until">Действует до (необязательно)</label>
+            <input type="date" id="valid_until" name="valid_until"
+                value="<?= htmlspecialchars($_POST['valid_until'] ?? '') ?>">
+
+            <label for="usage_limit">Лимит использований (0 = безлимит)</label>
+            <input type="number" id="usage_limit" name="usage_limit" placeholder="0"
+                value="<?= htmlspecialchars($_POST['usage_limit'] ?? '0') ?>">
+
+            <label>
+                <input style="max-height:30px;" type="checkbox" name="is_active" value="1"
+                    <?= isset($_POST['is_active']) ? 'checked' : '' ?>> Активен
+            </label>
+
+            <button type="submit" class="dob_bl_a" name="add_promo">Добавить</button>
+        </form>
+    </div>
+</div>

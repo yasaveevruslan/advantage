@@ -1,58 +1,158 @@
+<?php
+if (!isset($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'admin') {
+    header('Location: index.php?page=auth');
+    exit;
+}
+
+global $connect;
+$id = intval($_GET['id'] ?? 0);
+$errors = [];
+
+$stmt = $connect->prepare("SELECT * FROM dishes WHERE id = ?");
+$stmt->execute([$id]);
+$dish = $stmt->fetch();
+
+if (!$dish) {
+    echo '<div class="container">Блюдо не найдено</div>';
+    exit;
+}
+
+$categories = $connect->query("SELECT id, name FROM categories ORDER BY name")->fetchAll();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $name        = trim($_POST['name'] ?? '');
+    $kcal        = intval($_POST['kcal'] ?? 0);
+    $protein     = intval($_POST['protein'] ?? 0);
+    $fat         = intval($_POST['fat'] ?? 0);
+    $carbs       = intval($_POST['carbs'] ?? 0);
+    $category_id = intval($_POST['category_id'] ?? 0);
+    $price       = floatval(str_replace(',', '.', $_POST['price'] ?? 0));
+    $description = trim($_POST['description'] ?? '');
+    $ingredients = trim($_POST['ingredients'] ?? '');
+    $is_available = isset($_POST['is_available']) ? 1 : 0;
+
+    if ($name === '') $errors['name'] = 'Введите название';
+    if ($price <= 0) $errors['price'] = 'Введите корректную цену';
+    if ($category_id <= 0) $errors['category_id'] = 'Выберите категорию';
+
+    $imagePath = $dish['image'];
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        $allowed = ['image/jpeg', 'image/png', 'image/jpg'];
+        if (!in_array($_FILES['image']['type'], $allowed)) {
+            $errors['image'] = 'Разрешены только JPG, JPEG, PNG';
+        } elseif ($_FILES['image']['size'] > 5 * 1024 * 1024) {
+            $errors['image'] = 'Файл слишком большой (макс. 5 МБ)';
+        } else {
+            $ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+            $newName = 'dish_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+            $uploadDir = __DIR__ . '/../bl/';
+            if (move_uploaded_file($_FILES['image']['tmp_name'], $uploadDir . $newName)) {
+                if ($dish['image'] && file_exists($uploadDir . $dish['image'])) {
+                    unlink($uploadDir . $dish['image']);
+                }
+                $imagePath = $newName;
+            } else {
+                $errors['image'] = 'Ошибка сохранения файла';
+            }
+        }
+    }
+
+    if (empty($errors)) {
+        $stmt = $connect->prepare("
+            UPDATE dishes 
+            SET name=?, description=?, price=?, image=?, category_id=?, is_available=?, kcal=?, protein=?, fat=?, carbs=?, ingredients=? 
+            WHERE id=?
+        ");
+        
+        if ($stmt->execute([$name, $description, $price, $imagePath, $category_id, $is_available, $kcal, $protein, $fat, $carbs, $ingredients, $id])) {
+            header('Location: index.php?page=admin_kat_bl');
+            exit;
+        } else {
+            $errors['general'] = 'Ошибка обновления';
+        }
+    }
+}
+
+$val = fn($field) => $_POST[$field] ?? ($dish[$field] ?? '');
+?>
+
 <div class="dobavit_bludo container">
     <h3>Редактировать блюдо</h3>
     <div class="dob_bl">
-        <form action="" class="bld">
-            <label for="">Название *</label>
-            <input type="text" placeholder="Введите название">
+        <form action="" class="bld" method="POST" enctype="multipart/form-data">
+            <label for="name">Название *</label>
+            <input type="text" id="name" name="name" placeholder="Введите название"
+                value="<?= htmlspecialchars($val('name')) ?>">
+            <?php if(!empty($errors['name'])): ?><p class="error"><?= $errors['name'] ?></p><?php endif; ?>
+
             <div class="dkal">
                 <div class="dk1">
-                    <label for="">Калорий (ккал) *</label>
-                    <input type="text" placeholder="Введите калории">
+                    <label for="kcal">Калорий (ккал) *</label>
+                    <input type="number" id="kcal" name="kcal" placeholder="Введите калории"
+                        value="<?= htmlspecialchars($val('kcal')) ?>">
                 </div>
                 <div class="dk1">
-                    <label for="">Белков *</label>
-                    <input type="text" placeholder="Введите белки">
+                    <label for="protein">Белков *</label>
+                    <input type="number" id="protein" name="protein" placeholder="Введите белки"
+                        value="<?= htmlspecialchars($val('protein')) ?>">
                 </div>
                 <div class="dk1">
-                    <label for="">Жиры *</label>
-                    <input type="text" placeholder="Введите жиры">
+                    <label for="fat">Жиры *</label>
+                    <input type="number" id="fat" name="fat" placeholder="Введите жиры"
+                        value="<?= htmlspecialchars($val('fat')) ?>">
                 </div>
                 <div class="dk1">
-                    <label for="">Углеводы *</label>
-                    <input type="text" placeholder="Введите углеводы">
+                    <label for="carbs">Углеводы *</label>
+                    <input type="number" id="carbs" name="carbs" placeholder="Введите углеводы"
+                        value="<?= htmlspecialchars($val('carbs')) ?>">
                 </div>
-
             </div>
-            <label for="">Категория *</label>
-            <select name="kat" id="kat">
-                <option value="">Сбалансированное</option>
-                <option value="">Фитнес</option>
-                <option value="">Кето</option>
-                <option value="">Веган</option>
-                <option value="">Детокс</option>
+
+            <label for="category_id">Категория *</label>
+            <select name="category_id" id="category_id">
+                <option value="">— Выберите категорию —</option>
+                <?php foreach ($categories as $cat): ?>
+                <option value="<?= $cat['id'] ?>" <?= ($val('category_id') == $cat['id']) ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($cat['name']) ?>
+                </option>
+                <?php endforeach; ?>
             </select>
-            <label for="">Цена *</label>
-            <input type="text" placeholder="Введите цену">
-            <label for="">Описание *</label>
-            <textarea name="" id="" placeholder="Введите описание"></textarea>
-            <label for="">Состав *</label>
-            <textarea name="" id="" placeholder="Введите описание"></textarea>
+            <?php if(!empty($errors['category_id'])): ?><p class="error"><?= $errors['category_id'] ?></p>
+            <?php endif; ?>
+
+            <label for="price">Цена *</label>
+            <input type="number" id="price" name="price" step="0.01" placeholder="Введите цену"
+                value="<?= htmlspecialchars($val('price')) ?>">
+            <?php if(!empty($errors['price'])): ?><p class="error"><?= $errors['price'] ?></p><?php endif; ?>
+
+            <label for="description">Описание</label>
+            <textarea id="description" name="description"
+                placeholder="Введите описание"><?= htmlspecialchars($val('description')) ?></textarea>
+
+            <label for="ingredients">Состав</label>
+            <textarea id="ingredients" name="ingredients"
+                placeholder="Введите состав"><?= htmlspecialchars($val('ingredients')) ?></textarea>
+
             <div class="out_of">
-                <p>Нет в наличие</p>
+                <p>В наличии</p>
                 <label class="toggle-switch">
-                    <input type="checkbox" id="newOnly">
+                    <input type="checkbox" id="is_available" name="is_available" value="1"
+                        <?= $val('is_available') ? 'checked' : '' ?>>
                     <span class="toggle-slider"></span>
                 </label>
             </div>
-            <a href="" class="add">Редактировать</a>
+
+            <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/jpg" style="display:none;">
+            <label for="image" class="zagr_img">
+                <div class="zagf">
+                    <img src="image/dow.svg" alt="">
+                    <h5>Загрузите файл в эту область</h5>
+                    <p>Формат изображения только jpg, jpeg, png</p>
+                </div>
+            </label>
+            <?php if(!empty($errors['image'])): ?><p class="error"><?= $errors['image'] ?></p><?php endif; ?>
+
+            <button type="submit" name="edit_dish" class="add">Сохранить изменения</button>
         </form>
-        <div class="zagr_img">
-            <div class="zagf">
-                <a href=""><img src="image/dow.svg" alt=""></a>
-                <h5>Загрузите файл в эту область</h5>
-                <p>Формат изображения только jpg, jpeg, png</p>
-            </div>
-            <img src="image/nab1.png" alt="" class="zagr_image">
-        </div>
     </div>
 </div>

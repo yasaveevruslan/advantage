@@ -1,18 +1,38 @@
+<?php
+if (!isset($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'admin') {
+    header('Location: index.php?page=auth');
+    exit;
+}
+
+global $connect;
+
+if (isset($_POST['delete_promo']) && isset($_POST['promo_id'])) {
+    $stmt = $connect->prepare("DELETE FROM promocodes WHERE id = ?");
+    $stmt->execute([intval($_POST['promo_id'])]);
+    header('Location: ' . $_SERVER['REQUEST_URI']);
+    exit;
+}
+
+$stmt = $connect->prepare("SELECT * FROM promocodes ORDER BY id DESC");
+$stmt->execute();
+$promos = $stmt->fetchAll();
+?>
+
 <div class="lich container">
     <div class="l_v">
         <div class="l_v_panel">
-            <h4>Личный кабинет</h4>
-            <p id="wel">Добро пожаловать, Мингараева Аделя!</p>
+            <h4>Админ-панель</h4>
+            <p id="wel">Добро пожаловать, <?= htmlspecialchars($_SESSION['user_name'] ?? 'Админ') ?>!</p>
         </div>
-        <a href="">Выйти</a>
+        <a href="php/logout.php">Выйти</a>
     </div>
 
     <div class="lk container">
         <div class="lk_filter">
-            <a href="profile.html">Профиль</a>
-            <a href="admin_lk.html">Заказы</a>
-            <a href="admin_lk_otz.html">Отзывы</a>
-            <a href="admin_lk_promocod.html" id="fil">Промокоды</a>
+            <a href="index.php?page=admin_lk" id="<?= ($page === 'admin_lk') ? 'fil' : '' ?>">Заказы</a>
+            <a href="index.php?page=admin_lk_otz" id="<?= ($page === 'admin_lk_otz') ? 'fil' : '' ?>">Отзывы</a>
+            <a href="index.php?page=admin_lk_promocod"
+                id="<?= ($page === 'admin_lk_promocod') ? 'fil' : '' ?>">Промокоды</a>
         </div>
     </div>
 </div>
@@ -21,155 +41,107 @@
     <p id="ist">Промокоды</p>
 
     <div class="addpromocod">
-        <a href="admin_addpromocod.html">🞢 Добавить промокод</a>
+        <a href="index.php?page=admin_addpromocod">🞢 Добавить промокод</a>
     </div>
 
+    <?php if (empty($promos)): ?>
+    <p style="text-align:center; padding:20px; color:#666;">Промокодов пока нет</p>
+    <?php else: ?>
+    <?php foreach ($promos as $promo): 
+            if ($promo['discount_type'] === 'percentage') {
+                $typeText = $promo['discount_value'] . '% от цены';
+            } elseif ($promo['discount_type'] === 'fixed') {
+                $typeText = number_format($promo['discount_value'], 0, '.', ' ') . ' ₽ от цены';
+            } else {
+                $typeText = htmlspecialchars($promo['discount_type']);
+            }
+            $minOrderText = $promo['min_order'] > 0 ? number_format($promo['min_order'], 0, '.', ' ') . ' ₽' : '—';
+        ?>
     <div class="otziv">
         <div class="ot2">
             <div class="promocod_type">
                 <div class="name3">
                     <p>Название</p>
-                    <h6>ВКУСНО</h6>
+                    <h6><?= htmlspecialchars($promo['code']) ?></h6>
                 </div>
                 <div class="name3">
                     <p>Тип</p>
-                    <h6>Процент 25% от цены</h6>
+                    <h6><?= $typeText ?></h6>
                 </div>
                 <div class="name3">
                     <p>От суммы</p>
-                    <h6>2 500 ₽</h6>
+                    <h6><?= $minOrderText ?></h6>
                 </div>
             </div>
             <div class="i_knop1">
-                <input type="submit" value="Редактировать">
-                <img src="image/kor.svg" alt="Корзина">
+                <a style="width:100%" href="index.php?page=admin_editpromocod&id=<?= $promo['id'] ?>">Редактировать</a>
+                <img src="image/kor.svg" alt="Удалить" class="delete-promo" data-id="<?= $promo['id'] ?>">
             </div>
         </div>
     </div>
-    <div class="otziv">
-        <div class="ot2">
-            <div class="promocod_type">
-                <div class="name3">
-                    <p>Название</p>
-                    <h6>СПАСИБО</h6>
-                </div>
-                <div class="name3">
-                    <p>Тип</p>
-                    <h6>Процент 10% от цены</h6>
-                </div>
-                <div class="name3">
-                    <p>От суммы</p>
-                    <h6>1 500 ₽</h6>
-                </div>
-            </div>
-            <div class="i_knop1">
-                <input type="submit" value="Редактировать">
-                <img src="image/kor.svg" alt="Корзина">
-            </div>
-        </div>
-    </div>
-    <div class="otziv">
-        <div class="ot2">
-            <div class="promocod_type">
-                <div class="name3">
-                    <p>Название</p>
-                    <h6>БЫСТРО</h6>
-                </div>
-                <div class="name3">
-                    <p>Тип</p>
-                    <h6>Бесплатная доставка</h6>
-                </div>
-                <div class="name3">
-                    <p>От суммы</p>
-                    <h6>2 500 ₽</h6>
-                </div>
-            </div>
-            <div class="i_knop1">
-                <input type="submit" value="Редактировать">
-                <img src="image/kor.svg" alt="Корзина">
-            </div>
-        </div>
-    </div>
+    <?php endforeach; ?>
+    <?php endif; ?>
 </div>
 
 <!-- Модальное окно подтверждения удаления -->
 <div id="modalOverlay" class="modal-overlay">
     <div class="modal-container">
         <div class="modal-header">
-            <h3>Удалить</h3>
+            <h3>Удалить промокод</h3>
             <button class="modal-close" id="modalCloseBtn">&times;</button>
         </div>
         <div class="modal-body">
-            <p>Вы точно хотите удалить выбранный промокод Отменить данное действие будет невозможно.</p>
+            <p>Вы точно хотите удалить выбранный промокод? Отменить данное действие будет невозможно.</p>
+            <form method="POST" id="deleteForm">
+                <input type="hidden" name="promo_id" id="modalPromoId">
+                <input type="hidden" name="delete_promo" value="1">
+            </form>
         </div>
         <div class="modal-footer">
-            <button class="modal-btn modal-btn-cancel" id="modalCancelBtn">Отмена</button>
-            <button class="modal-btn modal-btn-delete" id="modalDeleteBtn">Удалить</button>
+            <button type="button" class="modal-btn modal-btn-cancel" id="modalCancelBtn">Отмена</button>
+            <button type="submit" form="deleteForm" class="modal-btn modal-btn-delete"
+                id="modalDeleteBtn">Удалить</button>
         </div>
     </div>
 </div>
 
 <script>
-// Получаем элементы
-const modal = document.getElementById('modalOverlay');
-const closeBtn = document.getElementById('modalCloseBtn');
-const cancelBtn = document.getElementById('modalCancelBtn');
-const deleteBtn = document.getElementById('modalDeleteBtn');
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('modalOverlay');
+    const closeBtn = document.getElementById('modalCloseBtn');
+    const cancelBtn = document.getElementById('modalCancelBtn');
+    const deleteIcons = document.querySelectorAll('.delete-promo');
+    const modalPromoId = document.getElementById('modalPromoId');
 
-// Находим картинку (иконку удаления) рядом с кнопкой "Редактировать"
-const deleteIcon = document.querySelector('.i_knop1 img');
+    function openModal(id) {
+        modalPromoId.value = id;
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
 
-// Функция открытия модального окна
-function openModal() {
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden'; // блокируем прокрутку страницы
-}
+    function closeModal() {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
 
-// Функция закрытия модального окна
-function closeModal() {
-    modal.classList.remove('active');
-    document.body.style.overflow = ''; // возвращаем прокрутку
-}
-
-// Обработчик для подтверждения удаления
-function onConfirmDelete() {
-    console.log('Промокод удален');
-    // Здесь можно добавить реальное удаление:
-    // Например, отправить запрос на сервер или удалить блок с товаром
-    alert('Промокод успешно удален!');
-    closeModal();
-
-    // Дополнительно: можно удалить весь блок с товаром со страницы
-    // const itemBlock = document.querySelector('.item');
-    // if (itemBlock) itemBlock.remove();
-}
-
-// Открываем модальное окно при клике на картинку (иконку удаления)
-if (deleteIcon) {
-    deleteIcon.addEventListener('click', function(e) {
-        e.preventDefault();
-        openModal();
+    deleteIcons.forEach(function(icon) {
+        icon.addEventListener('click', function(e) {
+            e.preventDefault();
+            openModal(this.getAttribute('data-id'));
+        });
     });
-}
 
-// Вешаем обработчики на крестик и кнопку "Отмена"
-closeBtn.addEventListener('click', closeModal);
-cancelBtn.addEventListener('click', closeModal);
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
 
-// Подтверждение удаления
-deleteBtn.addEventListener('click', onConfirmDelete);
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeModal();
+    });
 
-// Закрытие по клику на затемненную область (оверлей)
-modal.addEventListener('click', function(e) {
-    if (e.target === modal) {
-        closeModal();
-    }
-});
-
-// Закрытие по клавише ESC
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && modal.classList.contains('active')) {
-        closeModal();
-    }
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            closeModal();
+        }
+    });
 });
 </script>

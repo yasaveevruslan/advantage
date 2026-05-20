@@ -1230,6 +1230,18 @@ hr {
     height: auto;
 }
 
+.nowinki .new1 img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.2s;
+}
+
+.nowinki .new1 a:hover img {
+    transform: scale(1.03);
+}
+
 .product-card h6 {
     font-size: 28px;
     margin: 10px 0;
@@ -1803,7 +1815,7 @@ h3.container.reg_title {
     color: #BEBDBC;
 }
 
-.registr input {
+.registr input, .registr select, .registr textarea{
     width: 610px;
     height: 70px;
     border-radius: 10px;
@@ -2956,6 +2968,7 @@ h3.container.reg_title {
     font-size: 24px;
     font-family: "m", Arial, Helvetica, sans-serif;
     margin-top: 20px;
+    border: none;
 }
 
 .add {
