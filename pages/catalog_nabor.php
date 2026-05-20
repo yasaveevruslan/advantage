@@ -1,4 +1,8 @@
 <?php
+if ($_SESSION['user_role'] === 'admin') {
+    header('Location: index.php?page=admin_kat_na');
+    exit;
+}
 global $connect;
 
 $searchQuery = trim($_GET['search'] ?? '');

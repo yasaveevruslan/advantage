@@ -1,223 +1,207 @@
-<p id="hleb" class="container">Главная > Каталог блюд</p>
+<?php
+if (!isset($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'admin') {
+    header('Location: index.php?page=catalog_na');
+    exit;
+}
 
-<div class="catalog container">
-    <h3>Каталог наборов</h3>
-    <div class="adm_dob">
-        <a href="admin_add_na.html">+ Добавить набор</a>
-        <a href="admin_addkat_na.html">+ Добавить категорию набора</a>
-    </div>
-    <div class="filter">
-        <a href="">Все наборы</a>
-        <a href="">Похудение <img src="image/red.svg" alt="Редактировать"></a>
-        <a href="">Поддержание <img src="image/red.svg" alt="Редактировать"></a>
-        <a href="">Набор массы <img src="image/red.svg" alt="Редактировать"></a>
-    </div>
-</div>
+global $connect;
 
-<div class="top-actions container">
-    <div class="search-wrapper">
-        <img src="image/poisk.svg" alt="Поиск">
-        <input type="text" id="searchInput" placeholder="Поиск">
-    </div>
-    <div class="sort-select">
-        <select id="sortSelect">
-            <option value="popular">По популярности</option>
-            <option value="price_asc">По цене (сначала дешёвые)</option>
-            <option value="price_desc">По цене (сначала дорогие)</option>
-            <option value="calories_asc">По калориям (возрастание)</option>
-            <option value="calories_desc">По калориям (убывание)</option>
-        </select>
-    </div>
-</div>
-
-<div class="container catalog-layout">
-    <!-- ЛЕВАЯ ЧАСТЬ: ФИЛЬТР (все ползунки, чекбоксы, переключатели) — остаётся без изменений -->
-    <aside class="filter-sidebar">
-        <div class="price_filter">
-            <h2>Фильтр</h2>
-            <div style="display: flex; flex-direction: column; gap: 10px">
-                <div style="display: flex; flex-direction: column; gap: 10px">
-                    <p>Ккал: 0 - 1000 ккал</p>
-                    <div class="slider">
-                        <input type="range" class="range-min" min="0" max="10000" value="2500" step="100">
-                    </div>
-                </div>
-                <div style="display: flex; flex-direction: column">
-                    <p>Состав</p>
-                    <div class="sost_filter">
-                        <label>
-                            <input type="checkbox" value="category1" data-filter="value1"> Без сахара
-                        </label>
-                        <label>
-                            <input type="checkbox" value="category2" data-filter="value2"> Без глютена
-                        </label>
-                        <label>
-                            <input type="checkbox" value="category3" data-filter="value2"> Без лактозы
-                        </label>
-                        <label>
-                            <input type="checkbox" value="category4" data-filter="value2"> Веган
-                        </label>
-                        <label>
-                            <input type="checkbox" value="category5" data-filter="value2"> Вегетарианское
-                        </label>
-                    </div>
-                </div>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 10px">
-                <div style="display: flex; flex-direction: column">
-                    <p>Цена: 0 - 10 000 ₽</p>
-                    <div class="slider">
-                        <input type="range" class="range-min" min="0" max="10000" value="2500" step="100">
-                    </div>
-                </div>
-                <div class="new_f">
-                    <p>Только новинки</p>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="newOnly">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-            </div>
-        </div>
-        <div class="promocod">
-            <img src="image/promocod.svg" alt="Промокод">
-            <div class="promocod-text">
-                <h3>Бесплатная доставка</h3>
-                <p>Промокод БЫСТРО минимальная сумма 2 500 ₽</p>
-            </div>
-        </div>
-    </aside>
-
-
-    <!-- ПРАВАЯ ЧАСТЬ: СВЕРХУ поиск + сортировка на одной линии, снизу каталог -->
-    <div class="catalog-main">
-        <!-- Верхняя линия: поиск и выпадающий список (по умолчанию "По популярности" и др.) -->
-
-
-        <!-- КАТАЛОГ БЛЮД (оригинальные карточки, ничего не меняли) -->
-        <div class="catalog-items">
-            <div class="nowinki">
-                <div class="new1">
-                    <img src="image/nab1.png" alt="">
-                    <h5>Набор (3 блюда)</h5>
-                    <div class="kal">
-                        <div class="k">
-                            <p id="or">450</p>
-                            <p id="s">ккал</p>
-                        </div>
-                        <div class="k">
-                            <p id="si">35</p>
-                            <p id="s">белков</p>
-                        </div>
-                        <div class="k">
-                            <p id="kr">15</p>
-                            <p id="s">жиров</p>
-                        </div>
-                        <div class="k">
-                            <p id="ze">40</p>
-                            <p id="s">углеводов</p>
-                        </div>
-                    </div>
-                    <h6>890 ₽</h6>
-                    <a href="admin_upd_bl.html">Редактировать</a>
-                </div>
-
-                <div class="new1">
-                    <img src="image/nab2.png" alt="">
-                    <h5>Паста Карбонара</h5>
-                    <div class="kal">
-                        <div class="k">
-                            <p id="or">450</p>
-                            <p id="s">ккал</p>
-                        </div>
-                        <div class="k">
-                            <p id="si">35</p>
-                            <p id="s">белков</p>
-                        </div>
-                        <div class="k">
-                            <p id="kr">15</p>
-                            <p id="s">жиров</p>
-                        </div>
-                        <div class="k">
-                            <p id="ze">40</p>
-                            <p id="s">углеводов</p>
-                        </div>
-                    </div>
-                    <h6>890 ₽</h6>
-                    <a href="">Редактировать</a>
-                </div>
-
-                <div class="new1">
-                    <img src="image/new3.png" alt="">
-                    <h5>Куриный шницель с мака...</h5>
-                    <div class="kal">
-                        <div class="k">
-                            <p id="or">450</p>
-                            <p id="s">ккал</p>
-                        </div>
-                        <div class="k">
-                            <p id="si">35</p>
-                            <p id="s">белков</p>
-                        </div>
-                        <div class="k">
-                            <p id="kr">15</p>
-                            <p id="s">жиров</p>
-                        </div>
-                        <div class="k">
-                            <p id="ze">40</p>
-                            <p id="s">углеводов</p>
-                        </div>
-                    </div>
-                    <h6>890 ₽</h6>
-                    <a href="">Редактировать</a>
-                </div>
-
-                <div class="new1">
-                    <img src="image/nab4.png" alt="">
-                    <h5>Куриный шницель с мака...</h5>
-                    <div class="kal">
-                        <div class="k">
-                            <p id="or">450</p>
-                            <p id="s">ккал</p>
-                        </div>
-                        <div class="k">
-                            <p id="si">35</p>
-                            <p id="s">белков</p>
-                        </div>
-                        <div class="k">
-                            <p id="kr">15</p>
-                            <p id="s">жиров</p>
-                        </div>
-                        <div class="k">
-                            <p id="ze">40</p>
-                            <p id="s">углеводов</p>
-                        </div>
-                    </div>
-                    <h6>890 ₽</h6>
-                    <a href="">Редактировать</a>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-// Находим все ползунки на странице
-const sliders = document.querySelectorAll('input[type="range"]');
-
-sliders.forEach(slider => {
-    function updateGreenPart() {
-        // Вычисляем процент заполнения
-        const percent = (slider.value - slider.min) / (slider.max - slider.min) * 100;
-        // Меняем фон: слева зелёный, справа серый
-        slider.style.background =
-            `linear-gradient(to right, #94D201 0%, #94D201 ${percent}%, #DBDBDB ${percent}%, #DBDBDB 100%)`;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['delete_set'])) {
+        $setId = intval($_POST['set_id']);
+        try {
+            $connect->beginTransaction();
+            $connect->prepare("DELETE FROM set_dishes WHERE set_id = ?")->execute([$setId]);
+            $stmt = $connect->prepare("SELECT image FROM sets WHERE id = ?");
+            $stmt->execute([$setId]);
+            $row = $stmt->fetch();
+            if ($row && $row['image'] && file_exists(__DIR__ . '/../image/' . $row['image'])) {
+                unlink(__DIR__ . '/../na/' . $row['image']);
+            }
+            $connect->prepare("DELETE FROM sets WHERE id = ?")->execute([$setId]);
+            $connect->commit();
+        } catch (PDOException $e) {
+            $connect->rollBack();
+        }
+        header('Location: ' . $_SERVER['REQUEST_URI']);
+        exit;
     }
+    
+    if (isset($_POST['toggle_availability'])) {
+        $setId = intval($_POST['set_id']);
+        $connect->prepare("UPDATE sets SET is_available = NOT is_available WHERE id = ?")
+                ->execute([$setId]);
+        header('Location: ' . $_SERVER['REQUEST_URI']);
+        exit;
+    }
+}
 
-    // Запускаем при загрузке
-    updateGreenPart();
+$searchQuery = trim($_GET['search'] ?? '');
+$sortBy = $_GET['sort'] ?? 'popular';
+$priceMax = isset($_GET['price_max']) && $_GET['price_max'] !== '' ? floatval($_GET['price_max']) : '';
+$priceMin = isset($_GET['price_min']) && $_GET['price_min'] !== '' ? floatval($_GET['price_min']) : '';
 
-    // Запускаем при движении ползунка
-    slider.addEventListener('input', updateGreenPart);
-});
-</script>
+$sql = "SELECT s.*, 
+               (SELECT SUM(d.kcal * sd.quantity) FROM set_dishes sd JOIN dishes d ON sd.dish_id = d.id WHERE sd.set_id = s.id) as total_kcal,
+               (SELECT SUM(d.protein * sd.quantity) FROM set_dishes sd JOIN dishes d ON sd.dish_id = d.id WHERE sd.set_id = s.id) as total_protein,
+               (SELECT SUM(d.fat * sd.quantity) FROM set_dishes sd JOIN dishes d ON sd.dish_id = d.id WHERE sd.set_id = s.id) as total_fat,
+               (SELECT SUM(d.carbs * sd.quantity) FROM set_dishes sd JOIN dishes d ON sd.dish_id = d.id WHERE sd.set_id = s.id) as total_carbs,
+               (SELECT COUNT(*) FROM set_dishes WHERE set_id = s.id) as dishes_count
+        FROM sets s 
+        WHERE 1=1";
+$params = [];
+
+if ($searchQuery !== '') {
+    $sql .= " AND s.name LIKE ?";
+    $params[] = "%$searchQuery%";
+}
+if ($priceMin !== '' && $priceMin >= 0) {
+    $sql .= " AND s.price >= ?";
+    $params[] = $priceMin;
+}
+if ($priceMax !== '' && $priceMax >= 0) {
+    $sql .= " AND s.price <= ?";
+    $params[] = $priceMax;
+}
+
+switch ($sortBy) {
+    case 'price_asc': $sql .= " ORDER BY s.price ASC"; break;
+    case 'price_desc': $sql .= " ORDER BY s.price DESC"; break;
+    case 'calories_asc': $sql .= " ORDER BY total_kcal ASC"; break;
+    case 'calories_desc': $sql .= " ORDER BY total_kcal DESC"; break;
+    default: $sql .= " ORDER BY s.id DESC";
+}
+
+$stmt = $connect->prepare($sql);
+$stmt->execute($params);
+$sets = $stmt->fetchAll();
+?>
+
+<form action="index.php" method="GET">
+    <input type="hidden" name="page" value="admin_kat_na">
+    <input type="hidden" name="search" value="<?= htmlspecialchars($searchQuery) ?>">
+    <input type="hidden" name="sort" value="<?= htmlspecialchars($sortBy) ?>">
+
+    <p id="hleb" class="container">
+        <a href="index.php">Главная</a> > <a href="index.php?page=admin_kat_na">Каталог наборов (админ)</a>
+    </p>
+
+    <div class="catalog container">
+        <h3>Каталог наборов</h3>
+        <div class="adm_dob">
+            <a href="index.php?page=admin_add_na">+Добавить набор</a>
+            <a href="index.php?page=admin_addkat_na">+ Добавить категорию набора</a>
+        </div>
+
+        <div class="filter">
+            <a href="?page=admin_kat_na" class="active">Все наборы</a>
+            <a href="?page=admin_kat_na&search=Похудение">Похудение</a>
+            <a href="?page=admin_kat_na&search=Поддержание">Поддержание</a>
+            <a href="?page=admin_kat_na&search=Набор">Набор массы</a>
+        </div>
+    </div>
+
+    <div class="top-actions container">
+        <div class="search-wrapper">
+            <img src="image/poisk.svg" alt="Поиск">
+            <input type="text" name="search" placeholder="Поиск" value="<?= htmlspecialchars($searchQuery) ?>">
+        </div>
+        <div class="sort-select">
+            <select name="sort" onchange="this.form.submit()">
+                <option value="popular" <?= $sortBy == 'popular' ? 'selected' : '' ?>>По популярности</option>
+                <option value="price_asc" <?= $sortBy == 'price_asc' ? 'selected' : '' ?>>По цене (сначала дешёвые)
+                </option>
+                <option value="price_desc" <?= $sortBy == 'price_desc' ? 'selected' : '' ?>>По цене (сначала дорогие)
+                </option>
+                <option value="calories_asc" <?= $sortBy == 'calories_asc' ? 'selected' : '' ?>>По калориям ↑</option>
+                <option value="calories_desc" <?= $sortBy == 'calories_desc' ? 'selected' : '' ?>>По калориям ↓</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="container catalog-layout">
+        <aside class="filter-sidebar">
+            <div class="price_filter">
+                <h2>Фильтр</h2>
+                <div style="display:flex;flex-direction:column;gap:15px;margin-bottom:20px;">
+                    <p>Цена, ₽</p>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <input type="number" name="price_min" placeholder="От"
+                            value="<?= $priceMin !== '' ? htmlspecialchars($priceMin) : '' ?>" min="0" step="100"
+                            style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                        <span>—</span>
+                        <input type="number" name="price_max" placeholder="До"
+                            value="<?= $priceMax !== '' ? htmlspecialchars($priceMax) : '' ?>" min="0" step="100"
+                            style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    </div>
+                    <button type="submit"
+                        style="background:#94D201;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;">
+                        Применить
+                    </button>
+                </div>
+
+                <?php if ($priceMin !== '' || $priceMax !== '' || $searchQuery !== ''): ?>
+                <a href="?page=admin_kat_na" style="color:#666;font-size:13px;text-decoration:none;">✕ Сбросить
+                    фильтры</a>
+                <?php endif; ?>
+            </div>
+            <div class="promocod">
+                <img src="image/promocod.svg" alt="Промокод">
+                <div class="promocod-text">
+                    <h3>Бесплатная доставка</h3>
+                    <p>Промокод БЫСТРО от 2 500 ₽</p>
+                </div>
+            </div>
+        </aside>
+
+        <div class="catalog-main">
+            <div class="catalog-items">
+                <div class="nowinki">
+                    <?php if (empty($sets)): ?>
+                    <p style="padding:20px;color:#666;">Наборы не найдены</p>
+                    <?php else: ?>
+                    <?php foreach ($sets as $set): ?>
+                    <div class="new1">
+                        <a href="index.php?page=admin_upd_na&id=<?= $set['id'] ?>">
+                            <img src="na/<?= htmlspecialchars($set['image'] ?: 'placeholder.png') ?>"
+                                alt="<?= htmlspecialchars($set['name']) ?>">
+                        </a>
+
+                        <h5><?= mb_strimwidth(htmlspecialchars($set['name']), 0, 25, '...') ?>
+                            <small style="color:#888;font-weight:normal;">(<?= (int)$set['dishes_count'] ?>
+                                блюда)</small>
+                        </h5>
+
+                        <div class="kal">
+                            <div class="k">
+                                <p><?= (int)($set['total_kcal'] ?? 0) ?></p>
+                                <p id="s">ккал</p>
+                            </div>
+                            <div class="k">
+                                <p><?= (int)($set['total_protein'] ?? 0) ?></p>
+                                <p id="s">белков</p>
+                            </div>
+                            <div class="k">
+                                <p><?= (int)($set['total_fat'] ?? 0) ?></p>
+                                <p id="s">жиров</p>
+                            </div>
+                            <div class="k">
+                                <p><?= (int)($set['total_carbs'] ?? 0) ?></p>
+                                <p id="s">углеводов</p>
+                            </div>
+                        </div>
+
+                        <h6><?= number_format($set['price'], 0, '.', ' ') ?> ₽</h6>
+
+                        <a href="php/add_to_cart.php?id=<?= $set['id'] ?>&type=set"
+                            style="display:block;background:#94D201;color:#fff;text-align:center;padding:8px;border-radius:5px;text-decoration:none;margin-top:8px;">
+                            В корзину
+                        </a>
+                    </div>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

@@ -1,476 +1,183 @@
+<?php
+if (!isset($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'admin') {
+    header('Location: index.php?page=auth');
+    exit;
+}
+
+global $connect;
+
+// 🔄 Обработка смены статуса
+if (isset($_POST['update_status']) && isset($_POST['order_id'])) {
+    $orderId = intval($_POST['order_id']);
+    $newStatus = $_POST['status'] ?? '';
+    $allowed = ['new', 'preparing', 'courier', 'delivered', 'cancelled'];
+    
+    if (in_array($newStatus, $allowed)) {
+        // ⚠️ Таблица называется `order` — используем обратные кавычки
+        $stmt = $connect->prepare("UPDATE `orders` SET status = ? WHERE id = ?");
+        $stmt->execute([$newStatus, $orderId]);
+        $_SESSION['success'] = 'Статус заказа обновлён';
+        echo '<script>window.location.replace("index.php?page=admin_lk");</script>';
+        exit;
+    }
+}
+
+// 🔍 Фильтрация по статусу
+$statusFilter = $_GET['status'] ?? 'all';
+$where = $statusFilter !== 'all' ? "WHERE o.status = ?" : "";
+$params = $statusFilter !== 'all' ? [$statusFilter] : [];
+
+// 📦 Запрос: заказы + товары (блюда ИЛИ сеты)
+$stmt = $connect->prepare("
+    SELECT 
+        o.id as order_id, o.status, o.order_date, o.delivery_address, 
+        o.total_amount, o.discount_amount, o.final_amount,
+        u.full_name as user_name, u.phone as user_phone,
+        oi.id as item_id, oi.item_type, oi.quantity, oi.price_at_time,
+        d.name as dish_name, d.image as dish_image,
+        s.name as set_name, s.image as set_image
+    FROM `orders` o
+    JOIN users u ON o.user_id = u.id
+    LEFT JOIN order_items oi ON o.id = oi.order_id
+    LEFT JOIN dishes d ON oi.item_type = 'dish' AND oi.item_id = d.id
+    LEFT JOIN `sets` s ON oi.item_type = 'set' AND oi.item_id = s.id
+    $where
+    ORDER BY o.order_date DESC
+");
+$stmt->execute($params);
+$rows = $stmt->fetchAll();
+
+// 🧩 Группировка: товары внутри заказов
+$orders = [];
+foreach ($rows as $row) {
+    $oid = $row['order_id'];
+    
+    if (!isset($orders[$oid])) {
+        $orders[$oid] = [
+            'id' => $oid,
+            'status' => $row['status'],
+            'order_date' => $row['order_date'],
+            'delivery_address' => $row['delivery_address'],
+            'total_amount' => $row['total_amount'],
+            'discount_amount' => $row['discount_amount'],
+            'final_amount' => $row['final_amount'],
+            'user_name' => $row['user_name'],
+            'user_phone' => $row['user_phone'],
+            'items' => []
+        ];
+    }
+    
+    // Добавляем товар, если он есть
+    if ($row['item_id']) {
+        $orders[$oid]['items'][] = [
+            'name'  => $row['set_name'] ?? $row['dish_name'] ?? 'Товар удалён',
+            'image' => $row['set_image'] ?? $row['dish_image'],
+            'quantity' => $row['quantity'],
+            'price' => $row['price_at_time']
+        ];
+    }
+}
+
+// 🎨 Цвета статусов
+$statusConfig = [
+    'new' => ['text' => 'Новый', 'color' => '#94D201'],
+    'preparing' => ['text' => 'Готовится', 'color' => '#2196F3'],
+    'courier' => ['text' => 'Передан курьеру', 'color' => '#FF9800'],
+    'delivered' => ['text' => 'Доставлен', 'color' => '#4CAF50'],
+    'cancelled' => ['text' => 'Отменён', 'color' => '#f44336'],
+];
+?>
 <div class="lich container">
     <div class="l_v">
         <div class="l_v_panel">
-            <h4>Личный кабинет</h4>
-            <p id="wel">Добро пожаловать, Мингараева Аделя!</p>
+            <h4>Админ-панель</h4>
+            <p id="wel">Добро пожаловать, <?= htmlspecialchars($_SESSION['user_name'] ?? 'Админ') ?>!</p>
         </div>
-        <a href="">Выйти</a>
+        <a href="php/logout.php">Выйти</a>
     </div>
 
     <div class="lk container">
         <div class="lk_filter">
-            <a href="profile.html">Профиль</a>
-            <a href="admin_lk.html" id="fil">Заказы</a>
-            <a href="admin_lk_otz.html">Отзывы</a>
-            <a href="admin_lk_promocod.html">Промокоды</a>
+            <a href="index.php?page=admin_lk" id="<?= ($page === 'admin_lk') ? 'fil' : '' ?>">Заказы</a>
+            <a href="index.php?page=admin_lk_otz" id="<?= ($page === 'admin_lk_otz') ? 'fil' : '' ?>">Отзывы</a>
+            <a href="index.php?page=admin_lk_promocod"id="<?= ($page === 'admin_lk_promocod') ? 'fil' : '' ?>">Промокоды</a>
         </div>
     </div>
 </div>
 
 <div class="ist_zak container">
     <p id="ist">История заказов</p>
+    
     <div class="navigat">
-        <a href="" id="vse">Все заказы</a>
-        <a href="">Новый</a>
-        <a href="">Готовится</a>
-        <a href="">Передан курьеру</a>
-        <a href="">Доставлен</a>
-        <a href="">Отменён</a>
+        <a href="index.php?page=admin_lk" class="<?= $statusFilter === 'all' ? 'active' : '' ?>">Все заказы</a>
+        <a href="index.php?page=admin_lk&status=new" class="<?= $statusFilter === 'new' ? 'active' : '' ?>">Новый</a>
+        <a href="index.php?page=admin_lk&status=preparing" class="<?= $statusFilter === 'preparing' ? 'active' : '' ?>">Готовится</a>
+        <a href="index.php?page=admin_lk&status=courier" class="<?= $statusFilter === 'courier' ? 'active' : '' ?>">Передан курьеру</a>
+        <a href="index.php?page=admin_lk&status=delivered" class="<?= $statusFilter === 'delivered' ? 'active' : '' ?>">Доставлен</a>
+        <a href="index.php?page=admin_lk&status=cancelled" class="<?= $statusFilter === 'cancelled' ? 'active' : '' ?>">Отменён</a>
     </div>
-    <div class="zak">
-        <div class="nom_z">
-            <div class="nom1">
-                <p>Заказ #0001</p>
-                <p>15.02.2026 в 09:00</p>
+
+    <?php if (empty($orders)): ?>
+        <p class="null2" style="text-align:center;padding:30px;color:#666;">Заказов пока нет</p>
+    <?php else: ?>
+        <?php foreach ($orders as $order): 
+            $status = $order['status'];
+            $cfg = $statusConfig[$status] ?? $statusConfig['new'];
+        ?>
+        <div class="zak">
+            <div class="nom_z">
+                <div class="nom1">
+                    <p>Заказ #<?= str_pad($order['id'], 4, '0', STR_PAD_LEFT) ?></p>
+                    <p><?= date('d.m.Y в H:i', strtotime($order['order_date'])) ?></p>
+                    <p style="font-size:13px;color:#666;">
+                        Клиент: <?= htmlspecialchars($order['user_name']) ?> 
+                        (<?= htmlspecialchars($order['user_phone']) ?>)
+                    </p>
+                </div>
+                <p style="color:<?= $cfg['color'] ?>;font-weight:600;"><?= $cfg['text'] ?></p>
             </div>
-            <p id="zel">Новый</p>
-        </div>
-        <div class="gips">
-            <img src="image/new2.png" alt="">
-            <div class="gips_txt">
-                <p>Рис с курицей и овощами </p>
-
-                <div class="kal">
-                    <div class="k">
-                        <p id="or">450</p>
-                        <p id="s">ккал</p>
-                    </div>
-                    <div class="k">
-                        <p id="si">35</p>
-                        <p id="s">белков</p>
-                    </div>
-                    <div class="k">
-                        <p id="kr">15</p>
-                        <p id="s">жиров</p>
-                    </div>
-                    <div class="k">
-                        <p id="ze">40</p>
-                        <p id="s">углеводов</p>
-                    </div>
-                </div>
-                <h5>750 ₽</h5>
-            </div>
-
-        </div>
-        <div class="gips">
-            <img src="image/new1.png" alt="">
-            <div class="gips_txt">
-                <p>Паста с морепродуктами</p>
-
-                <div class="kal">
-                    <div class="k">
-                        <p id="or">450</p>
-                        <p id="s">ккал</p>
-                    </div>
-                    <div class="k">
-                        <p id="si">35</p>
-                        <p id="s">белков</p>
-                    </div>
-                    <div class="k">
-                        <p id="kr">15</p>
-                        <p id="s">жиров</p>
-                    </div>
-                    <div class="k">
-                        <p id="ze">40</p>
-                        <p id="s">углеводов</p>
-                    </div>
-                </div>
-                <h5>720 ₽</h5>
-            </div>
-
-        </div>
-        <div class="gips">
-            <img src="image/new2.png" alt="">
-            <div class="gips_txt">
-                <p>Рис с курицей и овощами </p>
-
-                <div class="kal">
-                    <div class="k">
-                        <p id="or">450</p>
-                        <p id="s">ккал</p>
-                    </div>
-                    <div class="k">
-                        <p id="si">35</p>
-                        <p id="s">белков</p>
-                    </div>
-                    <div class="k">
-                        <p id="kr">15</p>
-                        <p id="s">жиров</p>
-                    </div>
-                    <div class="k">
-                        <p id="ze">40</p>
-                        <p id="s">углеводов</p>
-                    </div>
-                </div>
-                <h5>750 ₽</h5>
-            </div>
-
-        </div>
-
-        <div class="inf_zak">
-            <div class="iz1">
-                <div class="sp_o">
-                    <h5>Способ оплаты</h5>
-                    <p>Картой</p>
-                </div>
-                <div class="sp_o">
-                    <h5>Доставка по адресу</h5>
-                    <p>ул. Пушкина, д. 10, кв. 25</p>
-                </div>
-                <div class="sp_o">
-                    <h5>Дата и время доставки</h5>
-                    <p>18.03.2026 в 10:00</p>
+            <?php foreach ($order['items'] as $item): ?>
+            <div class="gips">
+                <img src="<?= htmlspecialchars($item['image'] ?: '/image/new1.png') ?>" alt="">
+                <div class="gips_txt">
+                    <p><?= htmlspecialchars($item['name']) ?> × <?= $item['quantity'] ?></p>
+                    <h5><?= number_format($item['price'] * $item['quantity'], 0, '.', ' ') ?> ₽</h5>
                 </div>
             </div>
-            <h6>1 780 ₽</h6>
-
-        </div>
-        <input type="submit" value="Изменить статус заказа" class="admin_edit_zakaz">
-    </div>
-    <div class="zak">
-        <div class="nom_z">
-            <div class="nom1">
-                <p>Заказ #0002</p>
-                <p>15.02.2026 в 09:00</p>
-            </div>
-            <p id="sin">Готовится</p>
-        </div>
-
-        <div class="gips">
-            <img src="image/new1.png" alt="">
-            <div class="gips_txt">
-                <p>Паста с морепродуктами</p>
-
-                <div class="kal">
-                    <div class="k">
-                        <p id="or">450</p>
-                        <p id="s">ккал</p>
+            <?php endforeach; ?>
+            <div class="inf_zak">
+                <div class="iz1">
+                    <div class="sp_o">
+                        <h5>Адрес доставки</h5>
+                        <p><?= htmlspecialchars($order['delivery_address'] ?? '—') ?></p>
                     </div>
-                    <div class="k">
-                        <p id="si">35</p>
-                        <p id="s">белков</p>
+                    <?php if ($order['discount_amount'] > 0): ?>
+                    <div class="sp_o">
+                        <h5>Скидка</h5>
+                        <p style="color:#4CAF50;">-<?= number_format($order['discount_amount'], 0, '.', ' ') ?> ₽</p>
                     </div>
-                    <div class="k">
-                        <p id="kr">15</p>
-                        <p id="s">жиров</p>
-                    </div>
-                    <div class="k">
-                        <p id="ze">40</p>
-                        <p id="s">углеводов</p>
-                    </div>
+                    <?php endif; ?>
                 </div>
-                <h5>720 ₽</h5>
-            </div>
-
-        </div>
-        <div class="gips">
-            <img src="image/new2.png" alt="">
-            <div class="gips_txt">
-                <p>Рис с курицей и овощами </p>
-
-                <div class="kal">
-                    <div class="k">
-                        <p id="or">450</p>
-                        <p id="s">ккал</p>
-                    </div>
-                    <div class="k">
-                        <p id="si">35</p>
-                        <p id="s">белков</p>
-                    </div>
-                    <div class="k">
-                        <p id="kr">15</p>
-                        <p id="s">жиров</p>
-                    </div>
-                    <div class="k">
-                        <p id="ze">40</p>
-                        <p id="s">углеводов</p>
-                    </div>
-                </div>
-                <h5>750 ₽</h5>
-            </div>
-
-        </div>
-
-        <div class="inf_zak">
-            <div class="iz1">
-                <div class="sp_o">
-                    <h5>Способ оплаты</h5>
-                    <p>Наличными</p>
-                </div>
-                <div class="sp_o">
-                    <h5>Доставка по адресу</h5>
-                    <p>ул. Пушкина, д. 10, кв. 25</p>
-                </div>
-                <div class="sp_o">
-                    <h5>Дата и время доставки</h5>
-                    <p>17.03.2026 в 10:00</p>
+                <div style="text-align:right;">
+                    <?php if ($order['total_amount'] != $order['final_amount']): ?>
+                        <p style="text-decoration:line-through;color:#999;font-size:14px;">
+                            <?= number_format($order['total_amount'], 0, '.', ' ') ?> ₽
+                        </p>
+                    <?php endif; ?>
+                    <h6><?= number_format($order['final_amount'], 0, '.', ' ') ?> ₽</h6>
                 </div>
             </div>
-            <h6>1 780 ₽</h6>
-
+            <?php if (!in_array($status, ['delivered', 'cancelled'])): ?>
+            <button type="button" class="admin_edit_zakaz" 
+                    data-order-id="<?= $order['id'] ?>"
+                    data-current-status="<?= $status ?>">
+                Изменить статус заказа
+            </button>
+            <?php endif; ?>
         </div>
-        <input type="submit" value="Изменить статус заказа" class="admin_edit_zakaz">
-    </div>
-    <div class="zak">
-        <div class="nom_z">
-            <div class="nom1">
-                <p>Заказ #0003</p>
-                <p>15.02.2026 в 09:00</p>
-            </div>
-            <p id="ora">Передан курьеру</p>
-        </div>
-
-        <div class="gips">
-            <img src="image/new1.png" alt="">
-            <div class="gips_txt">
-                <p>Паста с морепродуктами</p>
-
-                <div class="kal">
-                    <div class="k">
-                        <p id="or">450</p>
-                        <p id="s">ккал</p>
-                    </div>
-                    <div class="k">
-                        <p id="si">35</p>
-                        <p id="s">белков</p>
-                    </div>
-                    <div class="k">
-                        <p id="kr">15</p>
-                        <p id="s">жиров</p>
-                    </div>
-                    <div class="k">
-                        <p id="ze">40</p>
-                        <p id="s">углеводов</p>
-                    </div>
-                </div>
-                <h5>720 ₽</h5>
-            </div>
-
-        </div>
-        <div class="gips">
-            <img src="image/new2.png" alt="">
-            <div class="gips_txt">
-                <p>Рис с курицей и овощами </p>
-
-                <div class="kal">
-                    <div class="k">
-                        <p id="or">450</p>
-                        <p id="s">ккал</p>
-                    </div>
-                    <div class="k">
-                        <p id="si">35</p>
-                        <p id="s">белков</p>
-                    </div>
-                    <div class="k">
-                        <p id="kr">15</p>
-                        <p id="s">жиров</p>
-                    </div>
-                    <div class="k">
-                        <p id="ze">40</p>
-                        <p id="s">углеводов</p>
-                    </div>
-                </div>
-                <h5>750 ₽</h5>
-            </div>
-
-        </div>
-
-        <div class="inf_zak">
-            <div class="iz1">
-                <div class="sp_o">
-                    <h5>Способ оплаты</h5>
-                    <p>Через СПБ</p>
-                </div>
-                <div class="sp_o">
-                    <h5>Доставка по адресу</h5>
-                    <p>ул. Пушкина, д. 10, кв. 25</p>
-                </div>
-                <div class="sp_o">
-                    <h5>Дата и время доставки</h5>
-                    <p>18.03.2026 в 10:00</p>
-                </div>
-            </div>
-            <h6>1 780 ₽</h6>
-
-        </div>
-        <input type="submit" value="Изменить статус заказа" class="admin_edit_zakaz">
-    </div>
-    <div class="zak">
-        <div class="nom_z">
-            <div class="nom1">
-                <p>Заказ #0004</p>
-                <p>15.02.2026 в 09:00</p>
-            </div>
-            <p id="hz">Доставлен</p>
-        </div>
-
-        <div class="gips">
-            <img src="image/new1.png" alt="">
-            <div class="gips_txt">
-                <p>Паста с морепродуктами</p>
-
-                <div class="kal">
-                    <div class="k">
-                        <p id="or">450</p>
-                        <p id="s">ккал</p>
-                    </div>
-                    <div class="k">
-                        <p id="si">35</p>
-                        <p id="s">белков</p>
-                    </div>
-                    <div class="k">
-                        <p id="kr">15</p>
-                        <p id="s">жиров</p>
-                    </div>
-                    <div class="k">
-                        <p id="ze">40</p>
-                        <p id="s">углеводов</p>
-                    </div>
-                </div>
-                <h5>720 ₽</h5>
-            </div>
-
-        </div>
-        <div class="gips">
-            <img src="image/new2.png" alt="">
-            <div class="gips_txt">
-                <p>Рис с курицей и овощами </p>
-
-                <div class="kal">
-                    <div class="k">
-                        <p id="or">450</p>
-                        <p id="s">ккал</p>
-                    </div>
-                    <div class="k">
-                        <p id="si">35</p>
-                        <p id="s">белков</p>
-                    </div>
-                    <div class="k">
-                        <p id="kr">15</p>
-                        <p id="s">жиров</p>
-                    </div>
-                    <div class="k">
-                        <p id="ze">40</p>
-                        <p id="s">углеводов</p>
-                    </div>
-                </div>
-                <h5>750 ₽</h5>
-            </div>
-
-        </div>
-
-        <div class="inf_zak">
-            <div class="iz1">
-                <div class="sp_o">
-                    <h5>Способ оплаты</h5>
-                    <p>Картой</p>
-                </div>
-                <div class="sp_o">
-                    <h5>Доставка по адресу</h5>
-                    <p>ул. Пушкина, д. 10, кв. 25</p>
-                </div>
-                <div class="sp_o">
-                    <h5>Дата и время доставки</h5>
-                    <p>18.03.2026 в 10:00</p>
-                </div>
-            </div>
-            <h6>1 780 ₽</h6>
-        </div>
-    </div>
-    <div class="zak">
-        <div class="nom_z">
-            <div class="nom1">
-                <p>Заказ #0005</p>
-                <p>15.02.2026 в 09:00</p>
-            </div>
-            <p id="kiz">Отменён</p>
-        </div>
-        <div class="gips">
-            <img src="image/new2.png" alt="">
-            <div class="gips_txt">
-                <p>Рис с курицей и овощами </p>
-
-                <div class="kal">
-                    <div class="k">
-                        <p id="or">450</p>
-                        <p id="s">ккал</p>
-                    </div>
-                    <div class="k">
-                        <p id="si">35</p>
-                        <p id="s">белков</p>
-                    </div>
-                    <div class="k">
-                        <p id="kr">15</p>
-                        <p id="s">жиров</p>
-                    </div>
-                    <div class="k">
-                        <p id="ze">40</p>
-                        <p id="s">углеводов</p>
-                    </div>
-                </div>
-                <h5>750 ₽</h5>
-            </div>
-        </div>
-
-        <div class="gips">
-            <img src="image/new2.png" alt="">
-            <div class="gips_txt">
-                <p>Рис с курицей и овощами </p>
-
-                <div class="kal">
-                    <div class="k">
-                        <p id="or">450</p>
-                        <p id="s">ккал</p>
-                    </div>
-                    <div class="k">
-                        <p id="si">35</p>
-                        <p id="s">белков</p>
-                    </div>
-                    <div class="k">
-                        <p id="kr">15</p>
-                        <p id="s">жиров</p>
-                    </div>
-                    <div class="k">
-                        <p id="ze">40</p>
-                        <p id="s">углеводов</p>
-                    </div>
-                </div>
-                <h5>750 ₽</h5>
-            </div>
-        </div>
-
-        <div class="inf_zak">
-            <div class="iz1">
-                <div class="sp_o">
-                    <h5>Способ оплаты</h5>
-                    <p>Картой</p>
-                </div>
-                <div class="sp_o">
-                    <h5>Доставка по адресу</h5>
-                    <p>ул. Пушкина, д. 10, кв. 25</p>
-                </div>
-                <div class="sp_o">
-                    <h5>Дата и время доставки</h5>
-                    <p>18.03.2026 в 10:00</p>
-                </div>
-            </div>
-            <h6>1 780 ₽</h6>
-        </div>
-    </div>
-    <p class="null2">У вас еще не было заказов, совершите ваш первый заказ</p>
+        <?php endforeach; ?>
+    <?php endif; ?>
 </div>
-
-<!-- Модальное окно подтверждения удаления -->
 <div id="modalOverlay" class="modal-overlay">
     <div class="modal-container">
         <div class="modal-header">
@@ -501,16 +208,13 @@
 </div>
 
 <script>
-// Получаем элементы
 const modal = document.getElementById('modalOverlay');
 const closeBtn = document.getElementById('modalCloseBtn');
 const cancelBtn = document.getElementById('modalCancelBtn');
 const editBtn = document.getElementById('modalEditBtn');
 
-// Находим картинку (иконку удаления) рядом с кнопкой "Редактировать"
 const editIcon = document.querySelector('.admin_edit_zakaz');
 
-// Функция открытия модального окна
 function openModal() {
     modal.classList.add('active');
     document.body.style.overflow = 'hidden'; // блокируем прокрутку страницы
