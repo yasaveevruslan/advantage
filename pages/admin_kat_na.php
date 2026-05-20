@@ -192,11 +192,6 @@ $sets = $stmt->fetchAll();
                         </div>
 
                         <h6><?= number_format($set['price'], 0, '.', ' ') ?> ₽</h6>
-
-                        <a href="php/add_to_cart.php?id=<?= $set['id'] ?>&type=set"
-                            style="display:block;background:#94D201;color:#fff;text-align:center;padding:8px;border-radius:5px;text-decoration:none;margin-top:8px;">
-                            В корзину
-                        </a>
                     </div>
                     <?php endforeach; ?>
                     <?php endif; ?>

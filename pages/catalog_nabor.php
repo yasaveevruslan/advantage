@@ -1,6 +1,6 @@
 <?php
-if ($_SESSION['user_role'] === 'admin') {
-    header('Location: index.php?page=admin_kat_na');
+if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin') {
+    header('Location: index.php?page=admin_kat_bl');
     exit;
 }
 global $connect;

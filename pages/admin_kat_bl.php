@@ -169,8 +169,11 @@ $dishes = $stmt->fetchAll();
                     <?php else: ?>
                     <?php foreach ($dishes as $dish): ?>
                     <div class="new1">
-                        <img src="bl/<?= htmlspecialchars($dish['image'] ?: 'placeholder.png') ?>"
+                        <a href="index.php?page=admin_upd_bl&id=<?= $dish['id'] ?>">
+                            <img src="bl/<?= htmlspecialchars($dish['image'] ?: 'placeholder.png') ?>"
                             alt="<?= htmlspecialchars($dish['name']) ?>">
+                        </a>
+                        
                         <h5><?= mb_strimwidth(htmlspecialchars($dish['name']), 0, 25, '...') ?></h5>
                         <div class="kal">
                             <div class="k">
@@ -191,7 +194,6 @@ $dishes = $stmt->fetchAll();
                             </div>
                         </div>
                         <h6><?= number_format($dish['price'], 0, '.', ' ') ?> ₽</h6>
-                        <a href="?page=admin_upd_bl&id=<?= $dish['id'] ?>">В корзину</a>
                     </div>
                     <?php endforeach; ?>
                     <?php endif; ?>

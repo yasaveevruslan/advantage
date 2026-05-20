@@ -47,7 +47,7 @@ if (!$dish || $dish['is_available'] == 0) {
             </div>
             <p id="pr"><?= number_format($dish['price'], 0, '.', ' ') ?> ₽</p>
             <div class="i_knop">
-                <a href="php/add_to_cart.php?id=<?= $dish['id'] ?>">В корзину</a>
+                <a href="php/add_to_cart.php?id=<?= $dish['id'] ?>&type=dish">В корзину</a>
                 <img src="image/izb.svg" alt="Избранное" class="add-favorite" data-id="<?= $dish['id'] ?>">
             </div>
         </div>

@@ -1,156 +1,276 @@
+<?php
+session_start();
+global $connect;
+
+$userId = $_SESSION['user_id'] ?? null;
+$sessionId = $userId ? null : session_id();
+
+// Обработка действий (POST)
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['update_cart']) && !empty($_POST['qty'])) {
+        foreach ($_POST['qty'] as $cartId => $qty) {
+            $qty = max(0, intval($qty));
+            if ($qty <= 0) {
+                $connect->prepare("DELETE FROM cart WHERE id = ? AND (user_id = ? OR session_id = ?)")
+                        ->execute([$cartId, $userId, $sessionId]);
+            } else {
+                $connect->prepare("UPDATE cart SET quantity = ? WHERE id = ? AND (user_id = ? OR session_id = ?)")
+                        ->execute([$qty, $cartId, $userId, $sessionId]);
+            }
+        }
+        header('Location: ' . $_SERVER['REQUEST_URI']);
+        exit;
+    }
+    
+    if (isset($_POST['remove_item'])) {
+        $cartId = intval($_POST['cart_id'] ?? 0);
+        $connect->prepare("DELETE FROM cart WHERE id = ? AND (user_id = ? OR session_id = ?)")
+                ->execute([$cartId, $userId, $sessionId]);
+        header('Location: ' . $_SERVER['REQUEST_URI']);
+        exit;
+    }
+    
+    if (isset($_POST['apply_promo'])) {
+        $code = strtoupper(trim($_POST['promo_code'] ?? ''));
+        $_SESSION['promo_applied'] = $code;
+        $_SESSION['promo_success'] = "Промокод $code применён!";
+        header('Location: ' . $_SERVER['REQUEST_URI']);
+        exit;
+    }
+}
+
+// ✅ ЗАПРОС: добавляем поля КБЖУ для блюд (d.kcal, d.protein...)
+$sql = "SELECT c.id as cart_id, c.item_type, c.item_id, c.quantity, c.added_at,
+               COALESCE(s.name, d.name) as name,
+               COALESCE(s.price, d.price) as price,
+               COALESCE(s.image, d.image) as image,
+               COALESCE(s.is_available, d.is_available) as is_available,
+               d.kcal, d.protein, d.fat, d.carbs
+        FROM cart c
+        LEFT JOIN sets s ON c.item_type = 'set' AND c.item_id = s.id
+        LEFT JOIN dishes d ON c.item_type = 'dish' AND c.item_id = d.id
+        WHERE (c.user_id = ? OR c.session_id = ?)
+        ORDER BY c.added_at DESC";
+
+$stmt = $connect->prepare($sql);
+$stmt->execute([$userId, $sessionId]);
+$rows = $stmt->fetchAll();
+
+$cartItems = [];
+foreach ($rows as $row) {
+    if (!$row['name'] || $row['is_available'] == 0) continue;
+    
+    $item = [
+        'cart_id' => $row['cart_id'],
+        'type' => $row['item_type'],
+        'id' => $row['item_id'],
+        'name' => $row['name'],
+        'price' => $row['price'],
+        'image' => $row['image'],
+        'quantity' => $row['quantity'],
+        // ✅ Добавляем КБЖУ для блюд
+        'kcal' => $row['kcal'] ?? 0,
+        'protein' => $row['protein'] ?? 0,
+        'fat' => $row['fat'] ?? 0,
+        'carbs' => $row['carbs'] ?? 0,
+        'added_at' => $row['added_at']
+    ];
+    
+    // Для наборов подгружаем состав и считаем общие КБЖУ
+    if ($row['item_type'] === 'set') {
+        $stmtDetails = $connect->prepare("
+            SELECT d.name, d.kcal, d.protein, d.fat, d.carbs, sd.quantity,
+                   d.kcal * sd.quantity as item_kcal,
+                   d.protein * sd.quantity as item_protein,
+                   d.fat * sd.quantity as item_fat,
+                   d.carbs * sd.quantity as item_carbs
+            FROM set_dishes sd
+            JOIN dishes d ON sd.dish_id = d.id
+            WHERE sd.set_id = ?
+        ");
+        $stmtDetails->execute([$row['item_id']]);
+        $dishes = $stmtDetails->fetchAll();
+        
+        $item['details'] = [
+            'dishes' => $dishes,
+            'total_kcal' => array_sum(array_column($dishes, 'item_kcal')),
+            'total_protein' => array_sum(array_column($dishes, 'item_protein')),
+            'total_fat' => array_sum(array_column($dishes, 'item_fat')),
+            'total_carbs' => array_sum(array_column($dishes, 'item_carbs'))
+        ];
+    }
+    
+    $cartItems[] = $item;
+}
+$cartTotal = 0;
+$totalKcal = $totalProtein = $totalFat = $totalCarbs = 0;
+
+foreach ($cartItems as $item) {
+    $cartTotal += $item['price'] * $item['quantity'];
+    
+    if ($item['type'] === 'set' && !empty($item['details'])) {
+        $totalKcal += $item['details']['total_kcal'] * $item['quantity'];
+        $totalProtein += $item['details']['total_protein'] * $item['quantity'];
+        $totalFat += $item['details']['total_fat'] * $item['quantity'];
+        $totalCarbs += $item['details']['total_carbs'] * $item['quantity'];
+    } else {
+        $totalKcal += $item['kcal'] * $item['quantity'];
+        $totalProtein += $item['protein'] * $item['quantity'];
+        $totalFat += $item['fat'] * $item['quantity'];
+        $totalCarbs += $item['carbs'] * $item['quantity'];
+    }
+}
+
+$discount = 0;
+if (!empty($_SESSION['promo_applied'])) {
+    $discount = $cartTotal * 0.10;
+}
+$finalTotal = $cartTotal - $discount;
+?>
+
+<p id="hleb" class="container">
+    <a href="index.php">Главная</a> > Корзина
+</p>
+
 <div class="korzina container">
-    <h3>Корзина</h3>
-    <div class="korz">
-        <div class="o5">
-            <div class="sos_nab">
-                <div class="gips">
-                    <img src="image/new2.png" alt="">
-                    <div class="gips_txt">
-                        <p>Рис с курицей и овощами </p>
+    <h3>Ваша корзина</h3>
 
-                        <div class="kal">
-                            <div class="k">
-                                <p id="or">450</p>
-                                <p id="s">ккал</p>
+    <?php if (empty($cartItems)): ?>
+    <p style="text-align:center;padding:40px 0;color:#666;">
+        Корзина пуста. <a href="index.php?page=catalog_blud" style="color:#94D201;">Перейти в каталог</a>
+    </p>
+    <?php else: ?>
+    <form method="POST">
+        <div class="korz">
+            <div class="o5">
+                <div class="sos_nab">
+                    <?php foreach ($cartItems as $item): 
+                            $imagePath = ($item['type'] === 'set') ? 'na/' : 'bl/';
+                            $imageSrc = $item['image'] ? $imagePath . $item['image'] : 'placeholder.png';
+                        ?>
+                    <div class="gips">
+                        <img src="<?= htmlspecialchars($imageSrc) ?>" alt="<?= htmlspecialchars($item['name']) ?>">
+                        <div class="gips_txt">
+                            <p>
+                                <?= htmlspecialchars($item['name']) ?>
+                                <?php if ($item['type'] === 'set'): ?>
+                                <small>(набор)</small>
+                                <?php endif; ?>
+                            </p>
+
+                            <?php if ($item['type'] === 'set' && !empty($item['details']['dishes'])): ?>
+                            <ul>
+                                <?php foreach ($item['details']['dishes'] as $dish): ?>
+                                <li><?= htmlspecialchars($dish['name']) ?> ×<?= $dish['quantity'] ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                            <?php endif; ?>
+
+                            <div class="kal">
+                                <?php if ($item['type'] === 'set' && !empty($item['details'])): ?>
+                                <div class="k">
+                                    <p><?= (int)$item['details']['total_kcal'] ?></p>
+                                    <p id="s">ккал</p>
+                                </div>
+                                <div class="k">
+                                    <p><?= (int)$item['details']['total_protein'] ?></p>
+                                    <p id="s">белков</p>
+                                </div>
+                                <div class="k">
+                                    <p><?= (int)$item['details']['total_fat'] ?></p>
+                                    <p id="s">жиров</p>
+                                </div>
+                                <div class="k">
+                                    <p><?= (int)$item['details']['total_carbs'] ?></p>
+                                    <p id="s">углеводов</p>
+                                </div>
+                                <?php else: ?>
+                                <div class="k">
+                                    <p><?= (int)$item['kcal'] ?></p>
+                                    <p id="s">ккал</p>
+                                </div>
+                                <div class="k">
+                                    <p><?= (int)$item['protein'] ?></p>
+                                    <p id="s">белков</p>
+                                </div>
+                                <div class="k">
+                                    <p><?= (int)$item['fat'] ?></p>
+                                    <p id="s">жиров</p>
+                                </div>
+                                <div class="k">
+                                    <p><?= (int)$item['carbs'] ?></p>
+                                    <p id="s">углеводов</p>
+                                </div>
+                                <?php endif; ?>
                             </div>
-                            <div class="k">
-                                <p id="si">35</p>
-                                <p id="s">белков</p>
-                            </div>
-                            <div class="k">
-                                <p id="kr">15</p>
-                                <p id="s">жиров</p>
-                            </div>
-                            <div class="k">
-                                <p id="ze">40</p>
-                                <p id="s">углеводов</p>
+
+                            <h5><?= number_format($item['price'] * $item['quantity'], 0, '.', ' ') ?> ₽</h5>
+
+                            <div>
+                                <input type="number" name="qty[<?= $item['cart_id'] ?>]"
+                                    value="<?= $item['quantity'] ?>" min="1" max="99">
+                                <button type="submit" name="remove_item" value="1">
+                                    ⨉
+                                </button>
+                                <input type="hidden" name="cart_id" value="<?= $item['cart_id'] ?>">
                             </div>
                         </div>
-                        <h5>750 ₽</h5>
                     </div>
-
+                    <?php endforeach; ?>
                 </div>
-                <div class="gips">
-                    <img src="image/new2.png" alt="">
-                    <div class="gips_txt">
-                        <p>Рис с курицей и овощами </p>
+            </div>
 
-                        <div class="kal">
-                            <div class="k">
-                                <p id="or">450</p>
-                                <p id="s">ккал</p>
-                            </div>
-                            <div class="k">
-                                <p id="si">35</p>
-                                <p id="s">белков</p>
-                            </div>
-                            <div class="k">
-                                <p id="kr">15</p>
-                                <p id="s">жиров</p>
-                            </div>
-                            <div class="k">
-                                <p id="ze">40</p>
-                                <p id="s">углеводов</p>
-                            </div>
-                        </div>
-                        <h5>750 ₽</h5>
+            <div class="kbzu">
+                <div class="kb1">
+                    <h4>Итого КБЖУ</h4>
+                    <div class="kor_kal">
+                        <p>Калории</p>
+                        <h4><?= (int)$totalKcal ?></h4>
                     </div>
-
+                    <div class="kor_kal2">
+                        <div class="kor_b">
+                            <h4 id="si"><?= (int)$totalProtein ?></h4>
+                            <p>белков</p>
+                        </div>
+                        <div class="kor_b">
+                            <h4 id="kr"><?= (int)$totalFat ?></h4>
+                            <p>жиров</p>
+                        </div>
+                        <div class="kor_b">
+                            <h4 id="ze"><?= (int)$totalCarbs ?></h4>
+                            <p>углеводов</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="gips">
-                    <img src="image/new2.png" alt="">
-                    <div class="gips_txt">
-                        <p>Рис с курицей и овощами </p>
 
-                        <div class="kal">
-                            <div class="k">
-                                <p id="or">450</p>
-                                <p id="s">ккал</p>
-                            </div>
-                            <div class="k">
-                                <p id="si">35</p>
-                                <p id="s">белков</p>
-                            </div>
-                            <div class="k">
-                                <p id="kr">15</p>
-                                <p id="s">жиров</p>
-                            </div>
-                            <div class="k">
-                                <p id="ze">40</p>
-                                <p id="s">углеводов</p>
-                            </div>
-                        </div>
-                        <h5>750 ₽</h5>
+                <div class="kb1">
+                    <div class="kor_prom">
+                        <input type="text" name="promo_code" placeholder="Промокод"
+                            value="<?= htmlspecialchars($_SESSION['promo_applied'] ?? '') ?>">
+                        <button type="submit" name="apply_promo">Применить</button>
                     </div>
 
-                </div>
-                <div class="gips">
-                    <img src="image/new2.png" alt="">
-                    <div class="gips_txt">
-                        <p>Рис с курицей и овощами </p>
+                    <?php if (!empty($_SESSION['promo_success'])): ?>
+                    <p><?= $_SESSION['promo_success'] ?><?php unset($_SESSION['promo_success']); ?></p>
+                    <?php endif; ?>
 
-                        <div class="kal">
-                            <div class="k">
-                                <p id="or">450</p>
-                                <p id="s">ккал</p>
-                            </div>
-                            <div class="k">
-                                <p id="si">35</p>
-                                <p id="s">белков</p>
-                            </div>
-                            <div class="k">
-                                <p id="kr">15</p>
-                                <p id="s">жиров</p>
-                            </div>
-                            <div class="k">
-                                <p id="ze">40</p>
-                                <p id="s">углеводов</p>
-                            </div>
-                        </div>
-                        <h5>750 ₽</h5>
+                    <div class="kor_sum">
+                        <?php if ($discount > 0): ?>
+                        <p>
+                            <?= number_format($cartTotal, 0, '.', ' ') ?> ₽
+                        </p>
+                        <p>Скидка: -<?= number_format($discount, 0, '.', ' ') ?> ₽</p>
+                        <?php endif; ?>
+                        <p>Сумма заказа</p>
+                        <h4><?= number_format($finalTotal, 0, '.', ' ') ?> ₽</h4>
                     </div>
 
+                    <a href="">
+                        К оформлению заказа
+                    </a>
                 </div>
             </div>
         </div>
-        <div class="kbzu">
-            <div class="kb1">
-                <h4>Итого КБЖУ</h4>
-                <div class="kor_kal">
-                    <p>Калории</p>
-                    <h4>2050</h4>
-                </div>
-                <div class="kor_kal2">
-                    <div class="kor_b">
-                        <h4 id="si">130</h4>
-                        <p>белков</p>
-                    </div>
-                    <div class="kor_b">
-                        <h4 id="kr">91</h4>
-                        <p>жиров</p>
-                    </div>
-                    <div class="kor_b">
-                        <h4 id="ze">180</h4>
-                        <p>углеводов</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="kb1">
-                <div class="kor_prom">
-                    <input type="text" placeholder="Промокод">
-                    <input type="submit" value="Применить">
-                </div>
-                <div class="kor_sum">
-                    <p>Сумма заказа</p>
-                    <h4>3 960 ₽</h4>
-                </div>
-                <a href="zakaz_dost.html">К оформлению заказа</a>
-
-            </div>
-
-        </div>
-
-    </div>
-
+    </form>
+    <?php endif; ?>
 </div>

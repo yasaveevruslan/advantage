@@ -1,6 +1,6 @@
 <?php
 
-if ($_SESSION['user_role'] === 'admin') {
+if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin') {
     header('Location: index.php?page=admin_kat_bl');
     exit;
 }
@@ -148,8 +148,10 @@ if ($filterCatId > 0) {
                     <?php else: ?>
                     <?php foreach ($dishes as $dish): ?>
                     <div class="new1">
-                        <img src="bl/<?= htmlspecialchars($dish['image'] ?: 'placeholder.png') ?>"
+                        <a href="index.php?page=blud&id=<?= $dish['id'] ?>">
+                            <img src="bl/<?= htmlspecialchars($dish['image'] ?: 'placeholder.png') ?>"
                             alt="<?= htmlspecialchars($dish['name']) ?>">
+                        </a>
                         <h5><?= mb_strimwidth(htmlspecialchars($dish['name']), 0, 25, '...') ?></h5>
                         <div class="kal">
                             <div class="k">
@@ -170,7 +172,10 @@ if ($filterCatId > 0) {
                             </div>
                         </div>
                         <h6><?= number_format($dish['price'], 0, '.', ' ') ?> ₽</h6>
-                        <a href="?page=blud&id=<?= $dish['id'] ?>">В корзину</a>
+                        <a href="php/add_to_cart.php?id=<?= $dish['id'] ?>&type=dish"
+                            style="display:block;background:#94D201;color:#fff;text-align:center;padding:8px;border-radius:5px;text-decoration:none;margin-top:8px;">
+                            В корзину
+                        </a>
                     </div>
                     <?php endforeach; ?>
                     <?php endif; ?>

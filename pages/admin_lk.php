@@ -6,14 +6,12 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'admin') 
 
 global $connect;
 
-// 🔄 Обработка смены статуса
 if (isset($_POST['update_status']) && isset($_POST['order_id'])) {
     $orderId = intval($_POST['order_id']);
     $newStatus = $_POST['status'] ?? '';
     $allowed = ['new', 'preparing', 'courier', 'delivered', 'cancelled'];
     
     if (in_array($newStatus, $allowed)) {
-        // ⚠️ Таблица называется `order` — используем обратные кавычки
         $stmt = $connect->prepare("UPDATE `orders` SET status = ? WHERE id = ?");
         $stmt->execute([$newStatus, $orderId]);
         $_SESSION['success'] = 'Статус заказа обновлён';
@@ -22,12 +20,10 @@ if (isset($_POST['update_status']) && isset($_POST['order_id'])) {
     }
 }
 
-// 🔍 Фильтрация по статусу
 $statusFilter = $_GET['status'] ?? 'all';
 $where = $statusFilter !== 'all' ? "WHERE o.status = ?" : "";
 $params = $statusFilter !== 'all' ? [$statusFilter] : [];
 
-// 📦 Запрос: заказы + товары (блюда ИЛИ сеты)
 $stmt = $connect->prepare("
     SELECT 
         o.id as order_id, o.status, o.order_date, o.delivery_address, 
@@ -47,7 +43,6 @@ $stmt = $connect->prepare("
 $stmt->execute($params);
 $rows = $stmt->fetchAll();
 
-// 🧩 Группировка: товары внутри заказов
 $orders = [];
 foreach ($rows as $row) {
     $oid = $row['order_id'];
@@ -67,7 +62,6 @@ foreach ($rows as $row) {
         ];
     }
     
-    // Добавляем товар, если он есть
     if ($row['item_id']) {
         $orders[$oid]['items'][] = [
             'name'  => $row['set_name'] ?? $row['dish_name'] ?? 'Товар удалён',
@@ -78,7 +72,6 @@ foreach ($rows as $row) {
     }
 }
 
-// 🎨 Цвета статусов
 $statusConfig = [
     'new' => ['text' => 'Новый', 'color' => '#94D201'],
     'preparing' => ['text' => 'Готовится', 'color' => '#2196F3'],
@@ -100,82 +93,86 @@ $statusConfig = [
         <div class="lk_filter">
             <a href="index.php?page=admin_lk" id="<?= ($page === 'admin_lk') ? 'fil' : '' ?>">Заказы</a>
             <a href="index.php?page=admin_lk_otz" id="<?= ($page === 'admin_lk_otz') ? 'fil' : '' ?>">Отзывы</a>
-            <a href="index.php?page=admin_lk_promocod"id="<?= ($page === 'admin_lk_promocod') ? 'fil' : '' ?>">Промокоды</a>
+            <a href="index.php?page=admin_lk_promocod"
+                id="<?= ($page === 'admin_lk_promocod') ? 'fil' : '' ?>">Промокоды</a>
         </div>
     </div>
 </div>
 
 <div class="ist_zak container">
     <p id="ist">История заказов</p>
-    
+
     <div class="navigat">
         <a href="index.php?page=admin_lk" class="<?= $statusFilter === 'all' ? 'active' : '' ?>">Все заказы</a>
         <a href="index.php?page=admin_lk&status=new" class="<?= $statusFilter === 'new' ? 'active' : '' ?>">Новый</a>
-        <a href="index.php?page=admin_lk&status=preparing" class="<?= $statusFilter === 'preparing' ? 'active' : '' ?>">Готовится</a>
-        <a href="index.php?page=admin_lk&status=courier" class="<?= $statusFilter === 'courier' ? 'active' : '' ?>">Передан курьеру</a>
-        <a href="index.php?page=admin_lk&status=delivered" class="<?= $statusFilter === 'delivered' ? 'active' : '' ?>">Доставлен</a>
-        <a href="index.php?page=admin_lk&status=cancelled" class="<?= $statusFilter === 'cancelled' ? 'active' : '' ?>">Отменён</a>
+        <a href="index.php?page=admin_lk&status=preparing"
+            class="<?= $statusFilter === 'preparing' ? 'active' : '' ?>">Готовится</a>
+        <a href="index.php?page=admin_lk&status=courier"
+            class="<?= $statusFilter === 'courier' ? 'active' : '' ?>">Передан курьеру</a>
+        <a href="index.php?page=admin_lk&status=delivered"
+            class="<?= $statusFilter === 'delivered' ? 'active' : '' ?>">Доставлен</a>
+        <a href="index.php?page=admin_lk&status=cancelled"
+            class="<?= $statusFilter === 'cancelled' ? 'active' : '' ?>">Отменён</a>
     </div>
 
     <?php if (empty($orders)): ?>
-        <p class="null2" style="text-align:center;padding:30px;color:#666;">Заказов пока нет</p>
+    <p class="null2" style="text-align:center;padding:30px;color:#666;">Заказов пока нет</p>
     <?php else: ?>
-        <?php foreach ($orders as $order): 
+    <?php foreach ($orders as $order): 
             $status = $order['status'];
             $cfg = $statusConfig[$status] ?? $statusConfig['new'];
         ?>
-        <div class="zak">
-            <div class="nom_z">
-                <div class="nom1">
-                    <p>Заказ #<?= str_pad($order['id'], 4, '0', STR_PAD_LEFT) ?></p>
-                    <p><?= date('d.m.Y в H:i', strtotime($order['order_date'])) ?></p>
-                    <p style="font-size:13px;color:#666;">
-                        Клиент: <?= htmlspecialchars($order['user_name']) ?> 
-                        (<?= htmlspecialchars($order['user_phone']) ?>)
-                    </p>
-                </div>
-                <p style="color:<?= $cfg['color'] ?>;font-weight:600;"><?= $cfg['text'] ?></p>
+    <div class="zak">
+        <div class="nom_z">
+            <div class="nom1">
+                <p>Заказ #<?= str_pad($order['id'], 4, '0', STR_PAD_LEFT) ?></p>
+                <p><?= date('d.m.Y в H:i', strtotime($order['order_date'])) ?></p>
+                <p style="font-size:13px;color:#666;">
+                    Клиент: <?= htmlspecialchars($order['user_name']) ?>
+                    (<?= htmlspecialchars($order['user_phone']) ?>)
+                </p>
             </div>
-            <?php foreach ($order['items'] as $item): ?>
-            <div class="gips">
-                <img src="<?= htmlspecialchars($item['image'] ?: '/image/new1.png') ?>" alt="">
-                <div class="gips_txt">
-                    <p><?= htmlspecialchars($item['name']) ?> × <?= $item['quantity'] ?></p>
-                    <h5><?= number_format($item['price'] * $item['quantity'], 0, '.', ' ') ?> ₽</h5>
-                </div>
+            <p style="color:<?= $cfg['color'] ?>;font-weight:600;"><?= $cfg['text'] ?></p>
+        </div>
+        <?php foreach ($order['items'] as $item): ?>
+        <div class="gips">
+            <img src="<?= htmlspecialchars($item['image'] ?: '/image/new1.png') ?>" alt="">
+            <div class="gips_txt">
+                <p><?= htmlspecialchars($item['name']) ?> × <?= $item['quantity'] ?></p>
+                <h5><?= number_format($item['price'] * $item['quantity'], 0, '.', ' ') ?> ₽</h5>
             </div>
-            <?php endforeach; ?>
-            <div class="inf_zak">
-                <div class="iz1">
-                    <div class="sp_o">
-                        <h5>Адрес доставки</h5>
-                        <p><?= htmlspecialchars($order['delivery_address'] ?? '—') ?></p>
-                    </div>
-                    <?php if ($order['discount_amount'] > 0): ?>
-                    <div class="sp_o">
-                        <h5>Скидка</h5>
-                        <p style="color:#4CAF50;">-<?= number_format($order['discount_amount'], 0, '.', ' ') ?> ₽</p>
-                    </div>
-                    <?php endif; ?>
-                </div>
-                <div style="text-align:right;">
-                    <?php if ($order['total_amount'] != $order['final_amount']): ?>
-                        <p style="text-decoration:line-through;color:#999;font-size:14px;">
-                            <?= number_format($order['total_amount'], 0, '.', ' ') ?> ₽
-                        </p>
-                    <?php endif; ?>
-                    <h6><?= number_format($order['final_amount'], 0, '.', ' ') ?> ₽</h6>
-                </div>
-            </div>
-            <?php if (!in_array($status, ['delivered', 'cancelled'])): ?>
-            <button type="button" class="admin_edit_zakaz" 
-                    data-order-id="<?= $order['id'] ?>"
-                    data-current-status="<?= $status ?>">
-                Изменить статус заказа
-            </button>
-            <?php endif; ?>
         </div>
         <?php endforeach; ?>
+        <div class="inf_zak">
+            <div class="iz1">
+                <div class="sp_o">
+                    <h5>Адрес доставки</h5>
+                    <p><?= htmlspecialchars($order['delivery_address'] ?? '—') ?></p>
+                </div>
+                <?php if ($order['discount_amount'] > 0): ?>
+                <div class="sp_o">
+                    <h5>Скидка</h5>
+                    <p style="color:#4CAF50;">-<?= number_format($order['discount_amount'], 0, '.', ' ') ?> ₽</p>
+                </div>
+                <?php endif; ?>
+            </div>
+            <div style="text-align:right;">
+                <?php if ($order['total_amount'] != $order['final_amount']): ?>
+                <p style="text-decoration:line-through;color:#999;font-size:14px;">
+                    <?= number_format($order['total_amount'], 0, '.', ' ') ?> ₽
+                </p>
+                <?php endif; ?>
+                <h6><?= number_format($order['final_amount'], 0, '.', ' ') ?> ₽</h6>
+            </div>
+        </div>
+        <?php if (!in_array($status, ['delivered', 'cancelled'])): ?>
+        <button type="button" class="admin_edit_zakaz" data-order-id="<?= $order['id'] ?>"
+            data-current-status="<?= $status ?>">
+            Изменить статус заказа
+        </button>
+        <?php endif; ?>
+    </div>
+    <?php endforeach; ?>
     <?php endif; ?>
 </div>
 <div id="modalOverlay" class="modal-overlay">
