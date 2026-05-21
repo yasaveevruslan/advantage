@@ -2,37 +2,27 @@
 session_start();
 global $connect;
 
-$userId = $_SESSION['user_id'] ?? null;
-$sessionId = $userId ? null : session_id();
+if (!isset($_SESSION['user_id'])) {
+    header('Location: index.php?page=auth');
+    exit;
+}
+$userId = (int)$_SESSION['user_id'];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['update_cart']) && !empty($_POST['qty'])) {
-        foreach ($_POST['qty'] as $cartId => $qty) {
-            $qty = max(0, intval($qty));
-            if ($qty <= 0) {
-                $connect->prepare("DELETE FROM cart WHERE id = ? AND (user_id = ? OR session_id = ?)")->execute([$cartId, $userId, $sessionId]);
-            } else {
-                $connect->prepare("UPDATE cart SET quantity = ? WHERE id = ? AND (user_id = ? OR session_id = ?)")->execute([$qty, $cartId, $userId, $sessionId]);
-            }
-        }
-        header('Location: ' . $_SERVER['REQUEST_URI']);
-        exit;
-    }
-    
-    if (isset($_POST['remove_item'])) {
-        $cartId = intval($_POST['cart_id'] ?? 0);
-        $connect->prepare("DELETE FROM cart WHERE id = ? AND (user_id = ? OR session_id = ?)")->execute([$cartId, $userId, $sessionId]);
-        header('Location: ' . $_SERVER['REQUEST_URI']);
-        exit;
-    }
-    
-    if (isset($_POST['apply_promo'])) {
-        $code = strtoupper(trim($_POST['promo_code'] ?? ''));
-        $_SESSION['promo_applied'] = $code;
-        $_SESSION['promo_success'] = "Промокод $code применён!";
-        header('Location: ' . $_SERVER['REQUEST_URI']);
-        exit;
-    }
+// Обработка промокода (единственное, что осталось в этой форме)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['apply_promo'])) {
+    $code = strtoupper(trim($_POST['promo_code'] ?? ''));
+    $_SESSION['promo_applied'] = $code;
+    $_SESSION['promo_success'] = "Промокод $code применён!";
+    header('Location: ' . $_SERVER['REQUEST_URI']);
+    exit;
+}
+
+// Удаление товара (если форма удаления отправлена)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_item'])) {
+    $cartId = (int)($_POST['cart_id'] ?? 0);
+    $connect->prepare("DELETE FROM cart WHERE id = ? AND user_id = ?")->execute([$cartId, $userId]);
+    header('Location: ' . $_SERVER['REQUEST_URI']);
+    exit;
 }
 
 $sql = "SELECT c.id as cart_id, c.item_type, c.item_id, c.quantity, c.added_at,
@@ -40,15 +30,18 @@ $sql = "SELECT c.id as cart_id, c.item_type, c.item_id, c.quantity, c.added_at,
                COALESCE(sd.price, d.price) as price,
                COALESCE(sd.image, d.image) as image,
                COALESCE(sd.is_available, d.is_available) as is_available,
-               d.kcal, d.protein, d.fat, d.carbs
+               COALESCE(sd.kcal, d.kcal) as kcal,
+               COALESCE(sd.protein, d.protein) as protein,
+               COALESCE(sd.fat, d.fat) as fat,
+               COALESCE(sd.carbs, d.carbs) as carbs
         FROM cart c
         LEFT JOIN set_dishes sd ON c.item_type = 'set' AND c.item_id = sd.id
         LEFT JOIN dishes d ON c.item_type = 'dish' AND c.item_id = d.id
-        WHERE (c.user_id = ? OR c.session_id = ?)
+        WHERE c.user_id = ?
         ORDER BY c.added_at DESC";
 
 $stmt = $connect->prepare($sql);
-$stmt->execute([$userId, $sessionId]);
+$stmt->execute([$userId]);
 $rows = $stmt->fetchAll();
 
 $cartItems = [];
@@ -60,13 +53,13 @@ foreach ($rows as $row) {
         'type' => $row['item_type'],
         'id' => $row['item_id'],
         'name' => $row['name'],
-        'price' => $row['price'],
+        'price' => (float)$row['price'],
         'image' => $row['image'],
-        'quantity' => $row['quantity'],
-        'kcal' => $row['kcal'] ?? 0,
-        'protein' => $row['protein'] ?? 0,
-        'fat' => $row['fat'] ?? 0,
-        'carbs' => $row['carbs'] ?? 0,
+        'quantity' => (int)$row['quantity'],
+        'kcal' => (int)($row['kcal'] ?? 0),
+        'protein' => (int)($row['protein'] ?? 0),
+        'fat' => (int)($row['fat'] ?? 0),
+        'carbs' => (int)($row['carbs'] ?? 0),
         'added_at' => $row['added_at']
     ];
     
@@ -96,7 +89,7 @@ foreach ($rows as $row) {
     $cartItems[] = $item;
 }
 
-$cartTotal = 0;
+$cartTotal = 0.0;
 $totalKcal = $totalProtein = $totalFat = $totalCarbs = 0;
 
 foreach ($cartItems as $item) {
@@ -115,11 +108,12 @@ foreach ($cartItems as $item) {
     }
 }
 
+$cartTotal = round($cartTotal, 2);
 $discount = 0;
 if (!empty($_SESSION['promo_applied'])) {
-    $discount = $cartTotal * 0.10;
+    $discount = round($cartTotal * 0.10, 2);
 }
-$finalTotal = $cartTotal - $discount;
+$finalTotal = round($cartTotal - $discount, 2);
 ?>
 
 <p id="hleb" class="container">
@@ -134,6 +128,7 @@ $finalTotal = $cartTotal - $discount;
         Корзина пуста. <a href="index.php?page=catalog_blud" style="color:#94D201;">Перейти в каталог</a>
     </p>
     <?php else: ?>
+    <!-- Форма только для промокода -->
     <form method="POST">
         <div class="korz">
             <div class="o5">
@@ -200,15 +195,27 @@ $finalTotal = $cartTotal - $discount;
 
                             <h5><?= number_format($item['price'] * $item['quantity'], 0, '.', ' ') ?> ₽</h5>
 
-                            <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
-                                <input type="number" name="qty[<?= $item['cart_id'] ?>]"
-                                    value="<?= $item['quantity'] ?>" min="1" max="99"
-                                    style="width:60px;padding:5px;text-align:center;border:1px solid #ddd;border-radius:4px;">
-                                <button type="submit" name="remove_item" value="1"
-                                    style="background:none;border:none;color:#f44336;cursor:pointer;font-size:18px;">
-                                    ⨉
-                                </button>
-                                <input type="hidden" name="cart_id" value="<?= $item['cart_id'] ?>">
+                            <div
+                                style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin-top:10px;">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <a href="php/update_cart_quantity.php?item_id=<?= $item['id'] ?>&item_type=<?= $item['type'] ?>&action=decrease"
+                                        style="background:#f5f5f5;border:1px solid #ddd;width:30px;height:30px;display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:4px;font-size:18px;color:#333;">−</a>
+                                    <span
+                                        style="min-width:30px;text-align:center;font-weight:600;"><?= $item['quantity'] ?></span>
+
+                                    <a href="php/update_cart_quantity.php?item_id=<?= $item['id'] ?>&item_type=<?= $item['type'] ?>&action=increase"
+                                        style="background:#94D201;color:#fff;text-decoration:none;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:18px;">+</a>
+
+                                </div>
+
+                                <form method="POST" style="margin-left:10px;">
+                                    <input type="hidden" name="cart_id" value="<?= $item['cart_id'] ?>">
+                                    <button type="submit" name="remove_item" value="1"
+                                        style="background:none;border:none;color:#f44336;cursor:pointer;font-size:18px;"
+                                        title="Удалить">
+                                        ⨉
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>
@@ -262,16 +269,12 @@ $finalTotal = $cartTotal - $discount;
                         <h4><?= number_format($finalTotal, 0, '.', ' ') ?> ₽</h4>
                     </div>
 
-                    <a href="index.php?page=zakaz_dost">
-                        К оформлению заказа
-                    </a>
+                    <a href="index.php?page=zakaz_dost">К оформлению заказа</a>
                 </div>
             </div>
         </div>
 
         <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
-            <button type="submit" name="update_cart"
-                style="background:#f5f5f5;border:none;padding:10px 20px;border-radius:5px;cursor:pointer;">Обновить</button>
             <a href="index.php?page=catalog_blud" style="color:#666;text-decoration:none;padding:10px 20px;">←
                 Продолжить покупки</a>
         </div>

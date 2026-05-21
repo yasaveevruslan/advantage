@@ -45,6 +45,13 @@ if (isset($_SESSION['user_id'])) {
     $f->execute([$_SESSION['user_id'], $set['id']]);
     $isFav = (bool) $f->fetch();
 }
+
+$cartQuantity = 0;
+if (isset($_SESSION['user_id'])) {
+    $stmt = $connect->prepare("SELECT quantity FROM cart WHERE user_id = ? AND item_type = 'set' AND item_id = ?");
+    $stmt->execute([$_SESSION['user_id'], $set['id']]);
+    $cartQuantity = $stmt->fetchColumn() ?: 0;
+}
 ?>
 
 <p id="hleb" class="container">
@@ -86,7 +93,26 @@ if (isset($_SESSION['user_id'])) {
             <p id="pr"><?= number_format($set['price'], 0, '.', ' ') ?> ₽</p>
 
             <div class="i_knop">
-                <a href="php/add_to_cart.php?id=<?= $set['id'] ?>&type=set">В корзину</a>
+                <?php if (isset($_SESSION['user_id'])): ?>
+                    <?php if ($cartQuantity > 0): ?>
+                        <form method="POST" action="php/update_cart_quantity.php" style="display:flex;align-items:center;gap:8px;">
+                            <input type="hidden" name="item_type" value="set">
+                            <input type="hidden" name="item_id" value="<?= $set['id'] ?>">
+                            <button type="submit" name="action" value="decrease">−</button>
+                            <span><?= $cartQuantity ?></span>
+                            <button type="submit" name="action" value="increase">+</button>
+                        </form>
+                    <?php else: ?>
+                        <a href="php/add_to_cart.php?id=<?= $set['id'] ?>&type=set" >
+                        В корзину
+                        </a>
+                    <?php endif; ?>
+                <?php else: ?>
+                    <a href="index.php?page=auth">
+                        В корзину
+                    </a>
+                <?php endif; ?>
+
                 <form method="POST" action="php/toggle_favorite.php">
                     <input type="hidden" name="type" value="set">
                     <input type="hidden" name="id" value="<?= $set['id'] ?>">

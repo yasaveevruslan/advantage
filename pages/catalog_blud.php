@@ -1,5 +1,7 @@
 <?php
 
+session_start();
+
 if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin') {
     header('Location: index.php?page=admin_kat_bl');
     exit;
@@ -51,6 +53,20 @@ switch ($sortBy) {
 $stmtDishes = $connect->prepare($sql);
 $stmtDishes->execute($params);
 $dishes = $stmtDishes->fetchAll();
+
+$cartQuantities = [];
+if (isset($_SESSION['user_id'])) {
+    $stmtCart = $connect->prepare("
+        SELECT item_id, SUM(quantity) as qty 
+        FROM cart 
+        WHERE user_id = ? AND item_type = 'dish' 
+        GROUP BY item_id
+    ");
+    $stmtCart->execute([$_SESSION['user_id']]);
+    foreach ($stmtCart->fetchAll() as $row) {
+        $cartQuantities[$row['item_id']] = (int) $row['qty'];
+    }
+}
 
 $currentCategoryName = 'Все блюда';
 if ($filterCatId > 0) {
@@ -146,7 +162,9 @@ if ($filterCatId > 0) {
                     <?php if (empty($dishes)): ?>
                     <p style="padding:20px;color:#666;">Блюда не найдены</p>
                     <?php else: ?>
-                    <?php foreach ($dishes as $dish): ?>
+                    <?php foreach ($dishes as $dish): 
+                        $cartQty = $cartQuantities[$dish['id']] ?? 0;
+                    ?>
                     <div class="new1">
                         <a href="index.php?page=blud&id=<?= $dish['id'] ?>"
                             style="background-color: transparent; padding: 0px;">
@@ -173,10 +191,23 @@ if ($filterCatId > 0) {
                             </div>
                         </div>
                         <h6><?= number_format($dish['price'], 0, '.', ' ') ?> ₽</h6>
-                        <a href="php/add_to_cart.php?id=<?= $dish['id'] ?>&type=dish"
-                            style="display:block;background:#94D201;color:#fff;text-align:center;padding:8px;border-radius:5px;text-decoration:none;margin-top:8px;">
-                            В корзину
-                        </a>
+                        <?php if (isset($_SESSION['user_id'])): ?>
+                            <?php if ($cartQty > 0): ?>
+                            <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
+                                <a href="php/update_cart_quantity.php?item_id=<?= $dish['id'] ?>&item_type=dish&action=decrease">−</a>
+                                <span><?= $cartQty ?></span>
+                                <a href="php/update_cart_quantity.php?item_id=<?= $dish['id'] ?>&item_type=dish&action=increase">+</a>
+                            </div>
+                            <?php else: ?>
+                            <a href="php/add_to_cart.php?id=<?= $dish['id'] ?>&type=dish">
+                                В корзину
+                            </a>
+                            <?php endif; ?>
+                            <?php else: ?>
+                            <a href="index.php?page=auth">
+                                В корзину
+                            </a>
+                        <?php endif; ?>
                     </div>
                     <?php endforeach; ?>
                     <?php endif; ?>

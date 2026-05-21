@@ -29,6 +29,13 @@ if (isset($_SESSION['user_id'])) {
     $f->execute([$_SESSION['user_id'], $dish['id']]);
     $isFav = (bool) $f->fetch();
 }
+
+$cartQuantity = 0;
+if (isset($_SESSION['user_id'])) {
+    $stmt = $connect->prepare("SELECT quantity FROM cart WHERE user_id = ? AND item_type = 'dish' AND item_id = ?");
+    $stmt->execute([$_SESSION['user_id'], $dish['id']]);
+    $cartQuantity = $stmt->fetchColumn() ?: 0;
+}
 ?>
 
 <p id="hleb" class="container">
@@ -67,13 +74,32 @@ if (isset($_SESSION['user_id'])) {
             </div>
             <p id="pr"><?= number_format($dish['price'], 0, '.', ' ') ?> ₽</p>
             <div class="i_knop">
-                <a href="php/add_to_cart.php?id=<?= $dish['id'] ?>&type=dish">В корзину</a>
+                <?php if (isset($_SESSION['user_id'])): ?>
+                    <?php if ($cartQuantity > 0): ?>
+                        <form method="POST" action="php/update_cart_quantity.php" style="display:flex;align-items:center;gap:8px;">
+                            <input type="hidden" name="item_type" value="dish">
+                            <input type="hidden" name="item_id" value="<?= $dish['id'] ?>">
+                            <button type="submit" name="action" value="decrease">−</button>
+                            <span><?= $cartQuantity ?></span>
+                            <button type="submit" name="action" value="increase">+</button>
+                        </form>
+                    <?php else: ?>
+                        <a href="php/add_to_cart.php?id=<?= $dish['id'] ?>&type=dish" >
+                        В корзину
+                        </a>
+                    <?php endif; ?>
+                <?php else: ?>
+                    <a href="index.php?page=auth">
+                        В корзину
+                    </a>
+                <?php endif; ?>
+
                 <form method="POST" action="php/toggle_favorite.php">
                     <input type="hidden" name="type" value="dish">
                     <input type="hidden" name="id" value="<?= $dish['id'] ?>">
                     <button type="submit" style='border:none' class="add-favorite">
                         <?php if ($isFav): ?>
-                        <img src="image/izb2.svg" alt="В избранном" >
+                        <img src="image/izb2.svg" alt="В избранном">
                         <?php else: ?>
                         <img src="image/izb.svg" alt="Добавить в избранное" class="add-favorite">
                         <?php endif; ?>

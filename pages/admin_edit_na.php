@@ -48,7 +48,7 @@ $jsComposition = json_encode(array_map(fn($row) => [
 ], $currentComposition), JSON_UNESCAPED_UNICODE);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_set'])) {
-    $set_idи= intval($_POST['set_id'] ?? 0);
+    $set_id= intval($_POST['set_id'] ?? 0);
     $name = trim($_POST['name'] ?? '');
     $description  = trim($_POST['description'] ?? '');
     $is_available = isset($_POST['is_available']) ? 1 : 0;

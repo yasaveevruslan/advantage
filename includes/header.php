@@ -6,6 +6,13 @@ if (!isset($dishCategories)) {
 if (!isset($setCategories)) {
     $setCategories = $connect->query("SELECT id, name FROM sets ORDER BY name")->fetchAll();
 }
+
+$cartCount = 0;
+if (isset($_SESSION['user_id'])) {
+    $stmt = $connect->prepare("SELECT SUM(quantity) as total FROM cart WHERE user_id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+    $cartCount = $stmt->fetchColumn() ?: 0;
+}
 ?>
 <!-- шапка -->
 <header>
@@ -26,7 +33,14 @@ if (!isset($setCategories)) {
         </div>
         <div class="head2">
             <?php if (isset($_SESSION['user_id'])): ?>
-            <a href="?page=korzina" id="korzina">Корзина</a>
+            <a href="?page=korzina" id="korzina" style="position:relative;">
+                Корзина
+                <?php if ($cartCount > 0): ?>
+                    <span style="position:absolute;top:-8px;right:-12px;background:#f44336;color:#fff;font-size:11px;padding:2px 6px;border-radius:50%;min-width:18px;text-align:center;">
+                        <?= $cartCount ?>
+                    </span>
+                <?php endif; ?>
+            </a>
             <a href="?page=lk" id="korzina">ЛК</a>
             <a href="php/logout.php" id="voiti">Выйти</a>
             <?php else: ?>
@@ -36,7 +50,6 @@ if (!isset($setCategories)) {
     </div>
 </header>
 
-<!-- Навигация -->
 <nav class="header-nav container">
     <ul>
         <li class="blu">

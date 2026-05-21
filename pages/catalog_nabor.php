@@ -1,6 +1,11 @@
 <?php
 global $connect;
 
+if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin') {
+    header('Location: index.php?page=admin_kat_na');
+    exit;
+}
+
 $filterCatId = intval($_GET['category'] ?? 0);
 $searchQuery = trim($_GET['search'] ?? '');
 $sortBy = $_GET['sort'] ?? 'popular';
@@ -44,6 +49,20 @@ switch ($sortBy) {
 $stmt = $connect->prepare($sql);
 $stmt->execute($params);
 $sets = $stmt->fetchAll();
+
+$cartQuantities = [];
+if (isset($_SESSION['user_id'])) {
+    $stmtCart = $connect->prepare("
+        SELECT item_id, SUM(quantity) as qty 
+        FROM cart 
+        WHERE user_id = ? AND item_type = 'set' 
+        GROUP BY item_id
+    ");
+    $stmtCart->execute([$_SESSION['user_id']]);
+    foreach ($stmtCart->fetchAll() as $row) {
+        $cartQuantities[$row['item_id']] = (int) $row['qty'];
+    }
+}
 ?>
 
 <form action="index.php" method="GET">
@@ -127,7 +146,9 @@ $sets = $stmt->fetchAll();
                     <?php if (empty($sets)): ?>
                     <p style="padding:20px;color:#666;">Наборы не найдены</p>
                     <?php else: ?>
-                    <?php foreach ($sets as $set): ?>
+                    <?php foreach ($sets as $set): 
+                        $cartQty = $cartQuantities[$set['id']] ?? 0;
+                    ?>
                     <div class="new1">
                         <a href="index.php?page=nabor&id=<?= $set['id'] ?>"
                             style="background-color: transparent; padding: 0px;">>
@@ -161,9 +182,23 @@ $sets = $stmt->fetchAll();
 
                         <h6><?= number_format($set['price'], 0, '.', ' ') ?> ₽</h6>
 
-                        <a href="php/add_to_cart.php?id=<?= $set['id'] ?>&type=set">
-                            В корзину
-                        </a>
+                        <?php if (isset($_SESSION['user_id'])): ?>
+                            <?php if ($cartQty > 0): ?>
+                            <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
+                                <a href="php/update_cart_quantity.php?item_id=<?= $set['id'] ?>&item_type=set&action=decrease">−</a>
+                                <span><?= $cartQty ?></span>
+                                <a href="php/update_cart_quantity.php?item_id=<?= $set['id'] ?>&item_type=set&action=increase">+</a>
+                            </div>
+                            <?php else: ?>
+                            <a href="php/add_to_cart.php?id=<?= $set['id'] ?>&type=set">
+                                В корзину
+                            </a>
+                            <?php endif; ?>
+                            <?php else: ?>
+                            <a href="index.php?page=auth">
+                                В корзину
+                            </a>
+                        <?php endif; ?>
                     </div>
                     <?php endforeach; ?>
                     <?php endif; ?>
