@@ -12,7 +12,7 @@ $selectedRating = $_POST['rating'] ?? '';
 $commentText = $_POST['comment'] ?? '';
 
 if (isset($_POST['submit_review'])) {
-    $rating  = intval($selectedRating);
+    $rating = intval($selectedRating);
     $comment = trim($commentText);
 
     if ($rating < 1 || $rating > 5) {

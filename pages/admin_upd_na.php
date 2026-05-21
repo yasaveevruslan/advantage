@@ -5,24 +5,24 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'admin') 
 }
 
 global $connect;
-$setId = intval($_GET['id'] ?? 0);
+$setDishId = intval($_GET['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_set'])) {
-    $idToDelete = intval($_POST['set_id'] ?? 0);
+    $idToDelete = intval($_POST['set_dish_id'] ?? 0);
     if ($idToDelete > 0) {
         try {
             $connect->beginTransaction();
             
-            $connect->prepare("DELETE FROM set_dishes WHERE set_id = ?")->execute([$idToDelete]);
+            $connect->prepare("DELETE FROM set_composition WHERE set_dish_id = ?")->execute([$idToDelete]);
             
-            $stmt = $connect->prepare("SELECT image FROM sets WHERE id = ?");
+            $stmt = $connect->prepare("SELECT image FROM set_dishes WHERE id = ?");
             $stmt->execute([$idToDelete]);
             $row = $stmt->fetch();
-            if ($row && $row['image'] && file_exists(__DIR__ . '/../image/' . $row['image'])) {
+            if ($row && $row['image'] && file_exists(__DIR__ . '/../na/' . $row['image'])) {
                 unlink(__DIR__ . '/../na/' . $row['image']);
             }
             
-            $connect->prepare("DELETE FROM sets WHERE id = ?")->execute([$idToDelete]);
+            $connect->prepare("DELETE FROM set_dishes WHERE id = ?")->execute([$idToDelete]);
             
             $connect->commit();
             header('Location: index.php?page=admin_kat_na');
@@ -35,8 +35,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_set'])) {
     }
 }
 
-$stmt = $connect->prepare("SELECT * FROM sets WHERE id = ?");
-$stmt->execute([$setId]);
+$stmt = $connect->prepare("
+    SELECT sd.*, s.name as category_name
+    FROM set_dishes sd
+    LEFT JOIN sets s ON sd.set_id = s.id
+    WHERE sd.id = ?
+");
+$stmt->execute([$setDishId]);
 $set = $stmt->fetch();
 
 if (!$set) {
@@ -48,19 +53,20 @@ if (!$set) {
 }
 
 $stmt = $connect->prepare("
-    SELECT d.*, sd.quantity,
-           d.kcal * sd.quantity as item_kcal,
-           d.protein * sd.quantity as item_protein,
-           d.fat * sd.quantity as item_fat,
-           d.carbs * sd.quantity as item_carbs,
-           d.price * sd.quantity as item_price
-    FROM set_dishes sd
-    JOIN dishes d ON sd.dish_id = d.id
-    WHERE sd.set_id = ?
+    SELECT d.*, sc.quantity,
+           d.kcal * sc.quantity as item_kcal,
+           d.protein * sc.quantity as item_protein,
+           d.fat * sc.quantity as item_fat,
+           d.carbs * sc.quantity as item_carbs,
+           d.price * sc.quantity as item_price
+    FROM set_composition sc
+    JOIN dishes d ON sc.dish_id = d.id
+    WHERE sc.set_dish_id = ?
     ORDER BY d.name
 ");
-$stmt->execute([$setId]);
+$stmt->execute([$setDishId]);
 $setDishes = $stmt->fetchAll();
+
 $totalKcal = array_sum(array_column($setDishes, 'item_kcal'));
 $totalProtein = array_sum(array_column($setDishes, 'item_protein'));
 $totalFat = array_sum(array_column($setDishes, 'item_fat'));
@@ -70,6 +76,7 @@ $totalCarbs = array_sum(array_column($setDishes, 'item_carbs'));
 <p id="hleb" class="container">
     <a href="index.php">Главная</a> >
     <a href="index.php?page=admin_kat_na">Каталог наборов (админ)</a> >
+    <?= htmlspecialchars($set['category_name'] ?? '') ?> >
     <?= htmlspecialchars($set['name']) ?>
 </p>
 
@@ -80,25 +87,25 @@ $totalCarbs = array_sum(array_column($setDishes, 'item_carbs'));
     </div>
     <div class="item_txt">
         <div class="bl1">
-            <p id="sbal"><?= htmlspecialchars($set['name']) ?></p>
-            <h5><?= htmlspecialchars($set['name']) ?> (<?= count($setDishes) ?> блюда)</h5>
+            <p id="sbal"><?= htmlspecialchars($set['category_name'] ?? 'Без категории') ?></p>
+            <h5><?= htmlspecialchars($set['name']) ?></h5>
 
             <div class="i_kal">
                 <div class="i_k">
-                    <p id="i_or"><?= (int)$totalKcal ?></p>
-                    <p>ккал</p>
+                    <p id="or"><?= (int)$set['kcal'] ?></p>
+                    <p id="s">ккал</p>
                 </div>
                 <div class="i_k">
-                    <p id="i_si"><?= (int)$totalProtein ?></p>
-                    <p>белков</p>
+                    <p id="si"><?= (int)$set['protein'] ?></p>
+                    <p id="s">белков</p>
                 </div>
                 <div class="i_k">
-                    <p id="i_kr"><?= (int)$totalFat ?></p>
-                    <p>жиров</p>
+                    <p id="kr"><?= (int)$set['fat'] ?></p>
+                    <p id="s">жиров</p>
                 </div>
                 <div class="i_k">
-                    <p id="i_ze"><?= (int)$totalCarbs ?></p>
-                    <p>углеводов</p>
+                    <p id="ze"><?= (int)$set['carbs'] ?></p>
+                    <p id="s">углеводов</p>
                 </div>
             </div>
 
@@ -118,8 +125,9 @@ $totalCarbs = array_sum(array_column($setDishes, 'item_carbs'));
             </div>
 
             <div class="o1">
-                <h6>Состав</h6>
+                <h6>Состав набора</h6>
                 <div class="sos_nab">
+                    <?php if (!empty($setDishes)): ?>
                     <?php foreach ($setDishes as $dish): ?>
                     <div class="gips">
                         <img src="bl/<?= htmlspecialchars($dish['image'] ?: 'placeholder.png') ?>"
@@ -149,6 +157,9 @@ $totalCarbs = array_sum(array_column($setDishes, 'item_carbs'));
                         </div>
                     </div>
                     <?php endforeach; ?>
+                    <?php else: ?>
+                    <p style="color:#666;">Состав не указан</p>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -164,9 +175,8 @@ $totalCarbs = array_sum(array_column($setDishes, 'item_carbs'));
         <div class="modal-body">
             <p>Вы точно хотите удалить набор <strong>"<?= htmlspecialchars($set['name']) ?>"</strong>?<br>Отменить
                 данное действие будет невозможно.</p>
-
             <form method="POST" id="deleteForm">
-                <input type="hidden" name="set_id" value="<?= $set['id'] ?>">
+                <input type="hidden" name="set_dish_id" value="<?= $set['id'] ?>">
                 <input type="hidden" name="delete_set" value="1">
             </form>
         </div>
@@ -201,7 +211,6 @@ document.addEventListener('DOMContentLoaded', function() {
             openModal();
         });
     }
-
     closeBtn?.addEventListener('click', closeModal);
     cancelBtn?.addEventListener('click', closeModal);
     modal?.addEventListener('click', function(e) {

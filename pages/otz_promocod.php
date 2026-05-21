@@ -24,10 +24,10 @@ if ($promo) {
 
 <div class="otz_p container">
     <h4>Спасибо за отзыв<br>
-    ваша скидка <?= $discount ?>%</h4>
+        ваша скидка <?= $discount ?>%</h4>
     <div class="prom_p">
         <p>Промокод</p>
-        <a href=""><?= htmlspecialchars($promoCode) ?></a>
+        <a><?= htmlspecialchars($promoCode) ?></a>
     </div>
     <h6>При заказе от 1 500 ₽</h6>
     <a href="?page=catalog_blud" class="otz_btn">Перейти в каталог</a>

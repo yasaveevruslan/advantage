@@ -30,7 +30,6 @@
 </head>
 
 <body>
-    <!-- шапка -->
     <?php include('includes/header.php') ?>
 
     <?php

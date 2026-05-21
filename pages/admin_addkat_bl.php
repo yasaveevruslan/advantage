@@ -23,7 +23,7 @@ if (isset($_POST['add_category'])) {
         if ($check->fetch()) {
             $errors['name'] = 'Такая категория уже существует';
         } else {
-            $stmt = $connect->prepare("INSERT INTO categories (name) VALUES (?, ?)");
+            $stmt = $connect->prepare("INSERT INTO categories (name) VALUES (?)");
             if ($stmt->execute([$name])) {
                 header('Location: index.php?page=admin_kat_bl');
             } else {

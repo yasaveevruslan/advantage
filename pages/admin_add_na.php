@@ -7,22 +7,21 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'admin') 
 global $connect;
 $errors = [];
 
-if (isset($_POST['add_set'])) {
-    $name        = trim($_POST['name'] ?? '');
-    $description = trim($_POST['description'] ?? '');
+$setCategories = $connect->query("SELECT id, name FROM sets ORDER BY name")->fetchAll();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_set'])) {
+    $set_id = intval($_POST['set_id'] ?? 0);
+    $name = trim($_POST['name'] ?? '');
+    $description  = trim($_POST['description'] ?? '');
     $is_available = isset($_POST['is_available']) ? 1 : 0;
 
-    if ($name === '') $errors['name'] = 'Введите название набора';
-
-    $totalPrice = 0;
-    $totalKcal = $totalProtein = $totalFat = $totalCarbs = 0;
-
-    if (empty($errors) && !empty($_POST['dish_ids'])) {
+    $totalPrice = $totalKcal = $totalProtein = $totalFat = $totalCarbs = 0;
+    if (!empty($_POST['dish_ids'])) {
+        $stmtDish = $connect->prepare("SELECT price, kcal, protein, fat, carbs FROM dishes WHERE id = ?");
         foreach ($_POST['dish_ids'] as $i => $dishId) {
             $qty = max(1, intval($_POST['quantities'][$i] ?? 1));
-            $dish = $connect->prepare("SELECT price, kcal, protein, fat, carbs FROM dishes WHERE id = ?");
-            $dish->execute([$dishId]);
-            $d = $dish->fetch();
+            $stmtDish->execute([$dishId]);
+            $d = $stmtDish->fetch();
             if ($d) {
                 $totalPrice += $d['price'] * $qty;
                 $totalKcal += $d['kcal'] * $qty;
@@ -31,25 +30,38 @@ if (isset($_POST['add_set'])) {
                 $totalCarbs += $d['carbs'] * $qty;
             }
         }
+    }
+    if ($set_id <= 0) $errors['set_id'] = 'Выберите категорию набора';
+    if ($name === '') $errors['name'] = 'Введите название набора';
+    if (empty($_POST['dish_ids'])) $errors['general'] = 'Добавьте хотя бы одно блюдо в состав';
 
+    $imagePath = null;
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        $allowed = ['image/jpeg', 'image/png', 'image/jpg'];
+        if (in_array($_FILES['image']['type'], $allowed) && $_FILES['image']['size'] <= 5 * 1024 * 1024) {
+            $ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+            $imageName = 'set_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+            $uploadDir = __DIR__ . '/../na/';
+            if (move_uploaded_file($_FILES['image']['tmp_name'], $uploadDir . $imageName)) {
+                $imagePath = $imageName;
+            }
+        }
+    }
+
+    if (empty($errors)) {
         try {
             $connect->beginTransaction();
 
-            $stmt = $connect->prepare("
-                INSERT INTO sets (name, description, price, is_available) 
-                VALUES (?, ?, ?, ?)
-            ");
-            $stmt->execute([$name, $description, $totalPrice, $is_available]);
-            $setId = $connect->lastInsertId();
+            $stmt = $connect->prepare("INSERT INTO set_dishes (set_id, name, image, description, price, kcal, protein, fat, carbs, is_available) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$set_id, $name, $imagePath, $description, $totalPrice, $totalKcal, $totalProtein, $totalFat, $totalCarbs, $is_available]);
+            $setDishId = $connect->lastInsertId();
 
-            $linkStmt = $connect->prepare("
-                INSERT INTO set_dishes (set_id, dish_id, quantity) 
-                VALUES (?, ?, ?)
-                ON DUPLICATE KEY UPDATE quantity = VALUES(quantity)
-            ");
-            foreach ($_POST['dish_ids'] as $i => $dishId) {
-                $qty = max(1, intval($_POST['quantities'][$i] ?? 1));
-                $linkStmt->execute([$setId, intval($dishId), $qty]);
+            if (!empty($_POST['dish_ids'])) {
+                $compStmt = $connect->prepare("INSERT INTO set_composition (set_dish_id, dish_id, quantity) VALUES (?, ?, ?)");
+                foreach ($_POST['dish_ids'] as $i => $dishId) {
+                    $qty = max(1, intval($_POST['quantities'][$i] ?? 1));
+                    $compStmt->execute([$setDishId, intval($dishId), $qty]);
+                }
             }
 
             $connect->commit();
@@ -58,20 +70,17 @@ if (isset($_POST['add_set'])) {
 
         } catch (PDOException $e) {
             $connect->rollBack();
-            $errors['general'] = 'Ошибка: ' . $e->getMessage();
+            $errors['general'] = 'Ошибка сохранения: ' . $e->getMessage();
         }
-    } elseif (empty($_POST['dish_ids'])) {
-        $errors['general'] = 'Добавьте хотя бы одно блюдо в набор';
     }
 }
 
 $dishesForJs = $connect->query("
     SELECT d.id, d.name, d.price, d.image, d.kcal, d.protein, d.fat, d.carbs, c.name as category_name
-    FROM dishes d
-    LEFT JOIN categories c ON d.category_id = c.id
-    WHERE d.is_available = 1 
-    ORDER BY d.name
+    FROM dishes d LEFT JOIN categories c ON d.category_id = c.id
+    WHERE d.is_available = 1 ORDER BY d.name
 ")->fetchAll(PDO::FETCH_ASSOC);
+
 $dishesJson = json_encode($dishesForJs, JSON_UNESCAPED_UNICODE);
 
 $categories = $connect->query("SELECT id, name FROM categories ORDER BY name")->fetchAll();
@@ -80,14 +89,25 @@ $categories = $connect->query("SELECT id, name FROM categories ORDER BY name")->
 <div class="dobavit_bludo container">
     <h3>Добавить набор</h3>
     <div class="dob_bl">
-        <form action="" class="bld" method="POST">
+        <form action="" class="bld" method="POST" enctype="multipart/form-data">
+
+            <label for="set_id">Категория набора *</label>
+            <select name="set_id" id="set_id">
+                <option value="">— Выберите категорию —</option>
+                <?php foreach ($setCategories as $sc): ?>
+                <option value="<?= $sc['id'] ?>" <?= ($_POST['set_id'] ?? '') == $sc['id'] ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($sc['name']) ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
+            <?php if(!empty($errors['set_id'])): ?><p class="error"><?= $errors['set_id'] ?></p><?php endif; ?>
 
             <label for="name">Название набора *</label>
             <input type="text" id="name" name="name" placeholder="Например: 'Кето-старт'"
                 value="<?= htmlspecialchars($_POST['name'] ?? '') ?>">
             <?php if(!empty($errors['name'])): ?><p class="error"><?= $errors['name'] ?></p><?php endif; ?>
 
-            <label for="categoryFilter">Фильтр блюд</label>
+            <label for="categoryFilter">Фильтр блюд для подбора</label>
             <select id="categoryFilter" onchange="filterDishes()">
                 <option value="">Все категории</option>
                 <?php foreach ($categories as $cat): ?>
@@ -105,8 +125,7 @@ $categories = $connect->query("SELECT id, name FROM categories ORDER BY name")->
                 <p>Добавить блюдо</p>
             </div>
 
-            <div id="dishSelector"
-                style="display:none; margin-bottom:15px; background:#f5f5f5; padding:10px; border-radius:6px;">
+            <div id="dishSelector">
                 <select id="newDishSelect" style="width:100%; padding:8px; margin-bottom:8px;">
                     <option value="">— Выберите блюдо —</option>
                     <?php foreach ($dishesForJs as $d): ?>
@@ -121,7 +140,7 @@ $categories = $connect->query("SELECT id, name FROM categories ORDER BY name")->
                     <?php endforeach; ?>
                 </select>
                 <button type="button" onclick="addDish()"
-                    style="background:#94D201;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;">Добавить</button>
+                    style="background:#94D201;color:#fff;border:none;padding:12px 12px;border-radius:4px;cursor:pointer;">Добавить</button>
             </div>
 
             <div id="dishesContainer"></div>
@@ -130,6 +149,26 @@ $categories = $connect->query("SELECT id, name FROM categories ORDER BY name")->
             <?php if(!empty($errors['general'])): ?>
             <p class="error"><?= $errors['general'] ?></p>
             <?php endif; ?>
+
+            <label for="image">Обложка набора</label>
+            <input type="file" id="image" name="image" accept="image/jpeg,image/png,image/jpg" style="display:none;">
+            <label for="image" class="zagr_img">
+                <div class="zagf">
+                    <img src="image/dow.svg" alt="">
+                    <h5>Загрузите файл в эту область</h5>
+                    <p>Формат изображения только jpg, jpeg, png</p>
+                </div>
+            </label>
+            <?php if(!empty($errors['image'])): ?><p class="error"><?= $errors['image'] ?></p><?php endif; ?>
+
+            <div class="out_of">
+                <p>В наличии</p>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="is_available" name="is_available" value="1"
+                        <?= (!isset($_POST['add_set']) || isset($_POST['is_available'])) ? 'checked' : '' ?>>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
 
             <button type="submit" class="dob_bl_a" name="add_set">Создать набор</button>
         </form>
@@ -158,7 +197,6 @@ $categories = $connect->query("SELECT id, name FROM categories ORDER BY name")->
                 <div style="margin-top:15px; padding-top:10px; border-top:1px solid #eee;">
                     <p>Итоговая цена:</p>
                     <h4 id="totalPrice">0 ₽</h4>
-                    <small style="color:#888;">(считается автоматически из блюд)</small>
                 </div>
             </div>
         </div>
@@ -197,7 +235,6 @@ function addDish() {
     };
 
     if (selectedDishes.find(d => d.id == dish.id)) return alert('Блюдо уже в наборе');
-
     selectedDishes.push(dish);
     renderDishes();
     updateTotals();
@@ -226,27 +263,30 @@ function renderDishes() {
     container.innerHTML = '';
 
     selectedDishes.forEach(dish => {
-        const dishImage = dish.image;
+        const imgSrc = dish.image ? `bl/${dish.image}` : 'bl/placeholder.png';
         container.innerHTML += `
             <div class="o6">
                 <div class="gips">
-                    <img src="/../bl/${dishImage}" alt="${dish.name}"">
+                    <img src="${imgSrc}" alt="${dish.name}">
                     <div class="gips_txt">
                         <p>${dish.name}</p>
                         <div class="kal">
-                            <div class="k"><p>${dish.kcal * dish.quantity}</p><p class="s">ккал</p></div>
-                            <div class="k"><p>${dish.protein * dish.quantity}</p><p class="s">белков</p></div>
-                            <div class="k"><p>${dish.fat * dish.quantity}</p><p class="s">жиров</p></div>
-                            <div class="k"><p>${dish.carbs * dish.quantity}</p><p class="s">углеводов</p></div>
+                            <div class="k"><p id='or'>${dish.kcal * dish.quantity}</p><p id="s">ккал</p></div>
+                            <div class="k"><p id="si">${dish.protein * dish.quantity}</p><p id="s">белков</p></div>
+                            <div class="k"><p id="kr">${dish.fat * dish.quantity}</p><p id="s">жиров</p></div>
+                            <div class="k"><p id="ze">${dish.carbs * dish.quantity}</p><p id="s">углеводов</p></div>
                         </div>
                         <h5>${(dish.price * dish.quantity).toFixed(0)} ₽</h5>
                     </div>
                 </div>
                 <div class="rep_cross">
-                    <input type="number" value="${dish.quantity}" min="1" 
-                           onchange="changeQuantity(${dish.id}, this.value)" 
-                           style="width:45px;padding:4px;margin-right:8px;text-align:center;">
-                    <a href="javascript:void(0)" class="cross" onclick="removeDish(${dish.id})">⨉</a>
+                    <div style='display:flex; flex-direction:column; gap:6px;'>
+                        <p>Количество</p>
+                        <input type="number" value="${dish.quantity}" min="1" 
+                            onchange="changeQuantity(${dish.id}, this.value)" 
+                            style="width:80px;padding:4px;margin-right:8px;text-align:center;">
+                    </div>
+                    <a href="javascript:void(0)" onclick="removeDish(${dish.id})">⨉</a>
                 </div>
             </div>
         `;

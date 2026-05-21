@@ -344,9 +344,11 @@
     }
 
     .aaa input,
-    .aaa #kor_adr,
+    .aaa #delivery_address,
+    .aaa #delivery_time,
     .aaa textarea,
     .kor_prom input,
+    .kor_prom button,
     #vk {
         width: 100% !important;
         height: auto;
@@ -357,7 +359,8 @@
     .aaa textarea::placeholder,
     .aaa textarea,
     .aaa input,
-    .aaa #kor_adr,
+    .aaa #delivery_time,
+    .aaa #custom_address,
     .kor_prom input::placeholder {
         font-size: 16px;
     }
@@ -1163,7 +1166,7 @@
         width: 100%;
     }
 
-    .aaa #kor_adr {
+    .aaa #delivery_address, .aaa #delivery_time {
         background-position: right 20px center;
     }
 
@@ -1685,7 +1688,7 @@
         gap: 10px;
     }
 
-    .aaa #kor_adr {
+    .aaa #delivery_address, .aaa #delivery_time {
         background-position: right 10px center;
         margin-bottom: 10px;
     }

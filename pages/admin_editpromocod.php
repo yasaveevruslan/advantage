@@ -20,19 +20,31 @@ if (!$promo) {
 if (isset($_POST['update_promo'])) {
     $code           = strtoupper(trim($_POST['code'] ?? ''));
     $discount_type  = $_POST['discount_type'] ?? '';
-    $discount_value = floatval(str_replace(',', '.', $_POST['discount_value'] ?? 0));
-    $min_order      = floatval(str_replace(',', '.', $_POST['min_order'] ?? 0));
+    $discount_raw   = trim($_POST['discount_value'] ?? '');
+    $min_order_raw  = trim($_POST['min_order'] ?? '');
     $valid_until    = $_POST['valid_until'] !== '' ? $_POST['valid_until'] : null;
-    $usage_limit    = intval($_POST['usage_limit'] ?? 0);
+    $usage_limit    = $_POST['usage_limit'] !== '' ? intval($_POST['usage_limit']) : null;
     $is_active      = isset($_POST['is_active']) ? 1 : 0;
 
+    $discount_value = $discount_raw !== '' ? floatval(str_replace(',', '.', $discount_raw)) : 0.0;
+    $min_order      = $min_order_raw !== '' ? floatval(str_replace(',', '.', $min_order_raw)) : 0.0;
+
     if ($code === '') $errors['code'] = 'Введите код промокода';
-    if (!in_array($discount_type, ['percentage', 'fixed'])) $errors['discount_type'] = 'Выберите тип скидки';
-    if ($discount_type === 'percentage' && ($discount_value <= 0 || $discount_value > 100)) {
-        $errors['discount_value'] = 'Процент должен быть от 1 до 100';
+    
+    if (!in_array($discount_type, ['percentage', 'fixed'])) {
+        $errors['discount_type'] = 'Выберите тип скидки';
     }
-    if ($discount_type === 'fixed' && $discount_value <= 0) {
-        $errors['discount_value'] = 'Введите сумму скидки';
+    
+    if ($discount_raw === '') {
+        $errors['discount_value'] = 'Введите размер скидки';
+    } elseif ($discount_type === 'percentage' && ($discount_value <= 0 || $discount_value > 100)) {
+        $errors['discount_value'] = 'Процент должен быть от 1 до 100';
+    } elseif ($discount_type === 'fixed' && $discount_value <= 0) {
+        $errors['discount_value'] = 'Сумма скидки должна быть больше 0';
+    }
+
+    if ($min_order < 0) {
+        $errors['min_order'] = 'Минимальная сумма не может быть отрицательной';
     }
 
     if (empty($errors)) {
@@ -42,13 +54,17 @@ if (isset($_POST['update_promo'])) {
         if ($check->fetch()) {
             $errors['code'] = 'Такой промокод уже существует';
         } else {
-            $stmt = $connect->prepare("UPDATE promocodes SET code = ?, discount_type = ?, discount_value = ?, min_order = ?, valid_until = ?, usage_limit = ?, is_active = ? WHERE id = ?");
+            $stmt = $connect->prepare("
+                UPDATE promocodes 
+                SET code = ?, discount_type = ?, discount_value = ?, min_order = ?, valid_until = ?, usage_limit = ?, is_active = ? 
+                WHERE id = ?
+            ");
 
             if ($stmt->execute([$code, $discount_type, $discount_value, $min_order, $valid_until, $usage_limit, $is_active, $id])) {
                 header('Location: index.php?page=admin_lk_promocod');
                 exit;
             } else {
-                $errors['general'] = 'Ошибка обновления. Попробуйте позже.';
+                $errors['general'] = 'Ошибка обновления: ' . $connect->errorInfo()[2];
             }
         }
     }
@@ -56,11 +72,11 @@ if (isset($_POST['update_promo'])) {
 
 $currentCode   = $_POST['code'] ?? $promo['code'];
 $currentType   = $_POST['discount_type'] ?? $promo['discount_type'];
-$currentValue  = $_POST['discount_value'] ?? $promo['discount_value'];
-$currentMin    = $_POST['min_order'] ?? $promo['min_order'];
+$currentValue  = $_POST['discount_value'] ?? ($promo['discount_value'] !== null ? $promo['discount_value'] : '');
+$currentMin    = $_POST['min_order'] ?? ($promo['min_order'] !== null ? $promo['min_order'] : '');
 $currentUntil  = $_POST['valid_until'] ?? $promo['valid_until'];
-$currentLimit  = $_POST['usage_limit'] ?? $promo['usage_limit'];
-$currentActive = $_POST['is_active'] ?? $promo['is_active'];
+$currentLimit  = $_POST['usage_limit'] ?? ($promo['usage_limit'] !== null ? $promo['usage_limit'] : '');
+$currentActive = isset($_POST['update_promo']) ? (isset($_POST['is_active']) ? 1 : 0) : $promo['is_active'];
 ?>
 
 <div class="dobavit_bludo container">
@@ -75,7 +91,7 @@ $currentActive = $_POST['is_active'] ?? $promo['is_active'];
 
             <label for="discount_type">Тип скидки *</label>
             <select name="discount_type" id="discount_type">
-                <option value="">— Выберите тип —</option>
+                <option value="" <?= ($currentType === '') ? 'selected' : '' ?>>— Выберите тип —</option>
                 <option value="percentage" <?= ($currentType === 'percentage') ? 'selected' : '' ?>>Процент (%)</option>
                 <option value="fixed" <?= ($currentType === 'fixed') ? 'selected' : '' ?>>Фиксированная сумма (₽)
                 </option>
@@ -92,16 +108,16 @@ $currentActive = $_POST['is_active'] ?? $promo['is_active'];
             <label for="min_order">Минимальная сумма заказа</label>
             <input type="number" id="min_order" name="min_order" step="0.01"
                 value="<?= htmlspecialchars($currentMin) ?>">
+            <?php if(!empty($errors['min_order'])): ?><p class="error"><?= $errors['min_order'] ?></p><?php endif; ?>
 
             <label for="valid_until">Действует до (необязательно)</label>
             <input type="date" id="valid_until" name="valid_until" value="<?= htmlspecialchars($currentUntil) ?>">
 
-            <label for="usage_limit">Лимит использований (0 = безлимит)</label>
+            <label for="usage_limit">Лимит использований (пусто = безлимит)</label>
             <input type="number" id="usage_limit" name="usage_limit" value="<?= htmlspecialchars($currentLimit) ?>">
 
             <label>
-                <input style="max-height:30px;" type="checkbox" name="is_active" value="1"
-                    <?= $currentActive ? 'checked' : '' ?>> Активен
+                <input type="checkbox" name="is_active" value="1" <?= $currentActive ? 'checked' : '' ?>> Активен
             </label>
 
             <button type="submit" name="update_promo" class="dob_bl_a">Сохранить изменения</button>

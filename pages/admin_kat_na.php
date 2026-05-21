@@ -1,6 +1,6 @@
 <?php
 if (!isset($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'admin') {
-    header('Location: index.php?page=catalog_na');
+    header('Location: index.php?page=auth');
     exit;
 }
 
@@ -8,17 +8,17 @@ global $connect;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['delete_set'])) {
-        $setId = intval($_POST['set_id']);
+        $setDishId = intval($_POST['set_dish_id']);
         try {
             $connect->beginTransaction();
-            $connect->prepare("DELETE FROM set_dishes WHERE set_id = ?")->execute([$setId]);
-            $stmt = $connect->prepare("SELECT image FROM sets WHERE id = ?");
-            $stmt->execute([$setId]);
+            $connect->prepare("DELETE FROM set_composition WHERE set_dish_id = ?")->execute([$setDishId]);
+            $stmt = $connect->prepare("SELECT image FROM set_dishes WHERE id = ?");
+            $stmt->execute([$setDishId]);
             $row = $stmt->fetch();
-            if ($row && $row['image'] && file_exists(__DIR__ . '/../image/' . $row['image'])) {
+            if ($row && $row['image'] && file_exists(__DIR__ . '/../na/' . $row['image'])) {
                 unlink(__DIR__ . '/../na/' . $row['image']);
             }
-            $connect->prepare("DELETE FROM sets WHERE id = ?")->execute([$setId]);
+            $connect->prepare("DELETE FROM set_dishes WHERE id = ?")->execute([$setDishId]);
             $connect->commit();
         } catch (PDOException $e) {
             $connect->rollBack();
@@ -28,48 +28,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if (isset($_POST['toggle_availability'])) {
-        $setId = intval($_POST['set_id']);
-        $connect->prepare("UPDATE sets SET is_available = NOT is_available WHERE id = ?")
-                ->execute([$setId]);
+        $setDishId = intval($_POST['set_dish_id']);
+        $connect->prepare("UPDATE set_dishes SET is_available = NOT is_available WHERE id = ?")
+                ->execute([$setDishId]);
         header('Location: ' . $_SERVER['REQUEST_URI']);
         exit;
     }
 }
 
+$filterCatId = intval($_GET['category'] ?? 0);
 $searchQuery = trim($_GET['search'] ?? '');
 $sortBy = $_GET['sort'] ?? 'popular';
 $priceMax = isset($_GET['price_max']) && $_GET['price_max'] !== '' ? floatval($_GET['price_max']) : '';
 $priceMin = isset($_GET['price_min']) && $_GET['price_min'] !== '' ? floatval($_GET['price_min']) : '';
 
-$sql = "SELECT s.*, 
-               (SELECT SUM(d.kcal * sd.quantity) FROM set_dishes sd JOIN dishes d ON sd.dish_id = d.id WHERE sd.set_id = s.id) as total_kcal,
-               (SELECT SUM(d.protein * sd.quantity) FROM set_dishes sd JOIN dishes d ON sd.dish_id = d.id WHERE sd.set_id = s.id) as total_protein,
-               (SELECT SUM(d.fat * sd.quantity) FROM set_dishes sd JOIN dishes d ON sd.dish_id = d.id WHERE sd.set_id = s.id) as total_fat,
-               (SELECT SUM(d.carbs * sd.quantity) FROM set_dishes sd JOIN dishes d ON sd.dish_id = d.id WHERE sd.set_id = s.id) as total_carbs,
-               (SELECT COUNT(*) FROM set_dishes WHERE set_id = s.id) as dishes_count
-        FROM sets s 
+$categories = $connect->query("SELECT id, name FROM sets ORDER BY name")->fetchAll();
+
+$sql = "SELECT sd.*, s.name as category_name,
+               (SELECT COUNT(*) FROM set_composition sc WHERE sc.set_dish_id = sd.id) as dishes_count
+        FROM set_dishes sd
+        LEFT JOIN sets s ON sd.set_id = s.id
         WHERE 1=1";
 $params = [];
 
+if ($filterCatId > 0) {
+    $sql .= " AND sd.set_id = ?";
+    $params[] = $filterCatId;
+}
 if ($searchQuery !== '') {
-    $sql .= " AND s.name LIKE ?";
+    $sql .= " AND sd.name LIKE ?";
     $params[] = "%$searchQuery%";
 }
 if ($priceMin !== '' && $priceMin >= 0) {
-    $sql .= " AND s.price >= ?";
+    $sql .= " AND sd.price >= ?";
     $params[] = $priceMin;
 }
 if ($priceMax !== '' && $priceMax >= 0) {
-    $sql .= " AND s.price <= ?";
+    $sql .= " AND sd.price <= ?";
     $params[] = $priceMax;
 }
 
 switch ($sortBy) {
-    case 'price_asc': $sql .= " ORDER BY s.price ASC"; break;
-    case 'price_desc': $sql .= " ORDER BY s.price DESC"; break;
-    case 'calories_asc': $sql .= " ORDER BY total_kcal ASC"; break;
-    case 'calories_desc': $sql .= " ORDER BY total_kcal DESC"; break;
-    default: $sql .= " ORDER BY s.id DESC";
+    case 'price_asc': $sql .= " ORDER BY sd.price ASC"; break;
+    case 'price_desc': $sql .= " ORDER BY sd.price DESC"; break;
+    case 'calories_asc': $sql .= " ORDER BY sd.kcal ASC"; break;
+    case 'calories_desc': $sql .= " ORDER BY sd.kcal DESC"; break;
+    default: $sql .= " ORDER BY sd.id DESC";
 }
 
 $stmt = $connect->prepare($sql);
@@ -89,15 +93,23 @@ $sets = $stmt->fetchAll();
     <div class="catalog container">
         <h3>Каталог наборов</h3>
         <div class="adm_dob">
-            <a href="index.php?page=admin_add_na">+Добавить набор</a>
+            <a href="index.php?page=admin_add_na">+ Добавить набор</a>
             <a href="index.php?page=admin_addkat_na">+ Добавить категорию набора</a>
         </div>
 
         <div class="filter">
-            <a href="?page=admin_kat_na" class="active">Все наборы</a>
-            <a href="?page=admin_kat_na&search=Похудение">Похудение</a>
-            <a href="?page=admin_kat_na&search=Поддержание">Поддержание</a>
-            <a href="?page=admin_kat_na&search=Набор">Набор массы</a>
+            <a href="?page=admin_kat_na" class="<?= $filterCatId == 0 ? 'active' : '' ?>">Все наборы</a>
+            <?php foreach ($categories as $cat): ?>
+            <a href="?page=admin_kat_na&category=<?= $cat['id'] ?>"
+                class="<?= $filterCatId == $cat['id'] ? 'active' : '' ?>"
+                style="display:inline-flex;align-items:center;gap:5px;text-decoration:none;">
+                <?= htmlspecialchars($cat['name']) ?>
+                <a href="index.php?page=admin_editkat_na&id=<?= $cat['id'] ?>" onclick="event.stopPropagation()"
+                    style="display:inline-block;margin-left:4px;">
+                    <img src="image/red.svg" alt="Редактировать" style="width:16px;">
+                </a>
+            </a>
+            <?php endforeach; ?>
         </div>
     </div>
 
@@ -127,11 +139,11 @@ $sets = $stmt->fetchAll();
                     <p>Цена, ₽</p>
                     <div style="display:flex;gap:10px;align-items:center;">
                         <input type="number" name="price_min" placeholder="От"
-                            value="<?= $priceMin !== '' ? htmlspecialchars($priceMin) : '' ?>" min="0" step="100"
+                            value="<?= $priceMin !== '' ? htmlspecialchars($priceMin) : '' ?>" min="0"
                             style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
                         <span>—</span>
                         <input type="number" name="price_max" placeholder="До"
-                            value="<?= $priceMax !== '' ? htmlspecialchars($priceMax) : '' ?>" min="0" step="100"
+                            value="<?= $priceMax !== '' ? htmlspecialchars($priceMax) : '' ?>" min="0"
                             style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
                     </div>
                     <button type="submit"
@@ -140,9 +152,9 @@ $sets = $stmt->fetchAll();
                     </button>
                 </div>
 
-                <?php if ($priceMin !== '' || $priceMax !== '' || $searchQuery !== ''): ?>
-                <a href="?page=admin_kat_na" style="color:#666;font-size:13px;text-decoration:none;">✕ Сбросить
-                    фильтры</a>
+                <?php if ($priceMin !== '' || $priceMax !== '' || $filterCatId > 0 || $searchQuery !== ''): ?>
+                <a href="?page=admin_kat_na" style="color:#666;font-size:13px;text-decoration:none;">✕
+                    Сброситьфильтры</a>
                 <?php endif; ?>
             </div>
             <div class="promocod">
@@ -162,7 +174,8 @@ $sets = $stmt->fetchAll();
                     <?php else: ?>
                     <?php foreach ($sets as $set): ?>
                     <div class="new1">
-                        <a href="index.php?page=admin_upd_na&id=<?= $set['id'] ?>">
+                        <a href="index.php?page=admin_upd_na&id=<?= $set['id'] ?>"
+                            style="background-color: transparent; padding: 0px;">
                             <img src="na/<?= htmlspecialchars($set['image'] ?: 'placeholder.png') ?>"
                                 alt="<?= htmlspecialchars($set['name']) ?>">
                         </a>
@@ -174,24 +187,27 @@ $sets = $stmt->fetchAll();
 
                         <div class="kal">
                             <div class="k">
-                                <p><?= (int)($set['total_kcal'] ?? 0) ?></p>
+                                <p id="or"><?= (int)$set['kcal'] ?></p>
                                 <p id="s">ккал</p>
                             </div>
                             <div class="k">
-                                <p><?= (int)($set['total_protein'] ?? 0) ?></p>
+                                <p id="si"><?= (int)$set['protein'] ?></p>
                                 <p id="s">белков</p>
                             </div>
                             <div class="k">
-                                <p><?= (int)($set['total_fat'] ?? 0) ?></p>
+                                <p id="kr"><?= (int)$set['fat'] ?></p>
                                 <p id="s">жиров</p>
                             </div>
                             <div class="k">
-                                <p><?= (int)($set['total_carbs'] ?? 0) ?></p>
+                                <p id="ze"><?= (int)$set['carbs'] ?></p>
                                 <p id="s">углеводов</p>
                             </div>
                         </div>
 
                         <h6><?= number_format($set['price'], 0, '.', ' ') ?> ₽</h6>
+                        <a href="index.php?page=admin_edit_na&id=<?= $set['id'] ?>">
+                            Редактировать
+                        </a>
                     </div>
                     <?php endforeach; ?>
                     <?php endif; ?>

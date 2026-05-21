@@ -9,15 +9,20 @@ $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
-    $kcal = intval($_POST['kcal'] ?? 0);
-    $protein = intval($_POST['protein'] ?? 0);
-    $fat = intval($_POST['fat'] ?? 0);
-    $carbs = intval($_POST['carbs'] ?? 0);
+    $kcal_raw = trim($_POST['kcal'] ?? '');
+    $protein_raw = trim($_POST['protein'] ?? '');
+    $fat_raw = trim($_POST['fat'] ?? '');
+    $carbs_raw = trim($_POST['carbs'] ?? '');
+    
+    $kcal = intval($kcal_raw);
+    $protein = intval($protein_raw);
+    $fat = intval($fat_raw);
+    $carbs = intval($carbs_raw);
+    
     $category_id = intval($_POST['category_id'] ?? 0);
     $price = floatval(str_replace(',', '.', $_POST['price'] ?? 0));
     $description = trim($_POST['description'] ?? '');
     $ingredients = trim($_POST['ingredients'] ?? '');
-    
     $is_available = isset($_POST['is_available']) ? 1 : 0;
 
     if ($name === '') $errors['name'] = 'Введите название';
@@ -52,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: index.php?page=admin_kat_bl');
             exit;
         } else {
-            $errors['general'] = 'Ошибка сохранения';
+            $errors['general'] = 'Ошибка сохранения: ' . $connect->errorInfo()[2];
         }
     }
 }
@@ -71,24 +76,29 @@ $categories = $connect->query("SELECT id, name FROM categories ORDER BY name")->
 
             <div class="dkal">
                 <div class="dk1">
-                    <label for="kcal">Калорий (ккал) *</label>
+                    <label for="kcal">Калорий (ккал)</label>
                     <input type="number" id="kcal" name="kcal" placeholder="Введите калории"
                         value="<?= htmlspecialchars($_POST['kcal'] ?? '') ?>">
+                    <?php if(!empty($errors['kcal'])): ?><p class="error"><?= $errors['kcal'] ?></p><?php endif; ?>
                 </div>
                 <div class="dk1">
-                    <label for="protein">Белков *</label>
+                    <label for="protein">Белков</label>
                     <input type="number" id="protein" name="protein" placeholder="Введите белки"
                         value="<?= htmlspecialchars($_POST['protein'] ?? '') ?>">
+                    <?php if(!empty($errors['protein'])): ?><p class="error"><?= $errors['protein'] ?></p>
+                    <?php endif; ?>
                 </div>
                 <div class="dk1">
-                    <label for="fat">Жиры *</label>
+                    <label for="fat">Жиры</label>
                     <input type="number" id="fat" name="fat" placeholder="Введите жиры"
                         value="<?= htmlspecialchars($_POST['fat'] ?? '') ?>">
+                    <?php if(!empty($errors['fat'])): ?><p class="error"><?= $errors['fat'] ?></p><?php endif; ?>
                 </div>
                 <div class="dk1">
-                    <label for="carbs">Углеводы *</label>
+                    <label for="carbs">Углеводы</label>
                     <input type="number" id="carbs" name="carbs" placeholder="Введите углеводы"
                         value="<?= htmlspecialchars($_POST['carbs'] ?? '') ?>">
+                    <?php if(!empty($errors['carbs'])): ?><p class="error"><?= $errors['carbs'] ?></p><?php endif; ?>
                 </div>
             </div>
 
@@ -121,7 +131,7 @@ $categories = $connect->query("SELECT id, name FROM categories ORDER BY name")->
                 <p>В наличии</p>
                 <label class="toggle-switch">
                     <input type="checkbox" id="is_available" name="is_available" value="1"
-                        <?= isset($_POST['is_available']) ? 'checked' : 'checked' ?>>
+                        <?= (!isset($_POST['add_dish']) || isset($_POST['is_available'])) ? 'checked' : '' ?>>
                     <span class="toggle-slider"></span>
                 </label>
             </div>

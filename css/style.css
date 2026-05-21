@@ -324,6 +324,10 @@ ul {
 
 }
 
+#hleb a {
+    color: #969696;
+}
+
 /* Один общий блок */
 .faq-card {
     width: 100%;
@@ -1589,6 +1593,7 @@ input[type="checkbox"]:checked::after {
     padding: 18px;
     background-color: #ECF6E0;
     border-radius: 10px;
+    cursor: pointer;
 }
 
 .i_knop a {
@@ -1632,7 +1637,6 @@ input[type="checkbox"]:checked::after {
 }
 
 .i_knop2 {
-    display: flex;
     gap: 10px;
 }
 
@@ -1815,7 +1819,9 @@ h3.container.reg_title {
     color: #BEBDBC;
 }
 
-.registr input, .registr select, .registr textarea{
+.registr input,
+.registr select,
+.registr textarea {
     width: 610px;
     height: 70px;
     border-radius: 10px;
@@ -2018,7 +2024,6 @@ h3.container.reg_title {
 }
 
 .adr1 {
-    height: 127px;
     width: 1220px;
     border: 1.5px solid #DADADC;
     padding: 30px;
@@ -2038,6 +2043,7 @@ h3.container.reg_title {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    height: auto;
 }
 
 .adr1 img {
@@ -2167,7 +2173,7 @@ h3.container.reg_title {
     padding: 10px 20px;
     border-radius: 10px;
     color: black;
-    font-size: 24px;
+    font-size: 18px;
     font-family: "r", Arial, Helvetica, sans-serif;
 }
 
@@ -2345,7 +2351,9 @@ h3.container.reg_title {
 .rep_cross {
     display: flex;
     gap: 20px;
+    max-height: 100%;
 }
+
 
 .rep {
     display: flex;
@@ -2363,7 +2371,7 @@ h3.container.reg_title {
 
 .cross {
     display: flex;
-    width: 70px;
+    width: 40px;
     border-radius: 10px;
     justify-content: center;
     cursor: pointer;
@@ -2397,7 +2405,7 @@ h3.container.reg_title {
     font-family: "m", Arial, Helvetica, sans-serif;
 }
 
-.izbr a {
+.izbr button[type="submit"] {
     background-color: #F9F9F9;
     width: 60px;
     height: 60px;
@@ -2405,6 +2413,7 @@ h3.container.reg_title {
     display: flex;
     justify-content: center;
     align-items: center;
+    border: none;
 }
 
 .dob_bl {
@@ -2446,7 +2455,7 @@ h3.container.reg_title {
     margin-top: 10px;
 }
 
-.bld #submit {
+.bld #submit, .admin_edit_zakaz {
     background-color: #94D201;
     height: 60px;
     color: white;
@@ -2456,6 +2465,7 @@ h3.container.reg_title {
     padding: 15px 184px;
     cursor: pointer;
     margin-bottom: 20px;
+    border: none;
 }
 
 .dkal {
@@ -2648,7 +2658,7 @@ h3.container.reg_title {
 
 .o6 {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 20px;
     background-color: white;
     width: 640px;
@@ -2715,12 +2725,13 @@ h3.container.reg_title {
 .kor_kal2 {
     display: flex;
     justify-content: space-between;
+    gap: 10px;
 }
 
 .kor_b {
     background-color: #F9F9F9;
     border-radius: 10px;
-    width: 174px;
+    min-width: 174px;
     height: 76px;
     padding: 15px 20px;
 }
@@ -2736,7 +2747,7 @@ h3.container.reg_title {
     justify-content: space-between;
 }
 
-.kor_prom input {
+.kor_prom input,.kor_prom button {
     background-color: #F3F3F5;
     border: none;
     border-radius: 10px;
@@ -2752,7 +2763,7 @@ h3.container.reg_title {
     align-items: center;
 }
 
-.kor_prom input[type="submit"] {
+.kor_prom button[type="submit"] {
     width: 210px;
     background-color: #ECF6E0;
     color: #94D201;
@@ -2823,7 +2834,7 @@ h3.container.reg_title {
     margin-bottom: 20px;
 }
 
-.aaa #kor_adr {
+.aaa #delivery_address, .aaa #delivery_time {
     height: 70px;
     width: 100%;
     border: none;
@@ -3140,4 +3151,10 @@ h3.container.reg_title {
 .modal-btn-edit:hover {
     background-color: #D3E6BB;
     transform: translateY(-1px);
+}
+
+.navigat a.active {
+    color: #94D201;
+    font-weight: 600;
+    border-bottom: 2px solid #94D201;
 }

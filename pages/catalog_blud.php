@@ -112,11 +112,11 @@ if ($filterCatId > 0) {
                     <p>Цена, ₽</p>
                     <div style="display:flex;gap:10px;align-items:center;">
                         <input type="number" name="price_min" placeholder="От"
-                            value="<?= $priceMin !== '' ? htmlspecialchars($priceMin) : '' ?>" min="0" step="10"
+                            value="<?= $priceMin !== '' ? htmlspecialchars($priceMin) : '' ?>" min="0"
                             style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
                         <span>—</span>
                         <input type="number" name="price_max" placeholder="До"
-                            value="<?= $priceMax !== '' ? htmlspecialchars($priceMax) : '' ?>" min="0" step="10"
+                            value="<?= $priceMax !== '' ? htmlspecialchars($priceMax) : '' ?>" min="0"
                             style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
                     </div>
                     <button type="submit"
@@ -148,27 +148,28 @@ if ($filterCatId > 0) {
                     <?php else: ?>
                     <?php foreach ($dishes as $dish): ?>
                     <div class="new1">
-                        <a href="index.php?page=blud&id=<?= $dish['id'] ?>">
+                        <a href="index.php?page=blud&id=<?= $dish['id'] ?>"
+                            style="background-color: transparent; padding: 0px;">
                             <img src="bl/<?= htmlspecialchars($dish['image'] ?: 'placeholder.png') ?>"
-                            alt="<?= htmlspecialchars($dish['name']) ?>">
+                                alt="<?= htmlspecialchars($dish['name']) ?>">
                         </a>
                         <h5><?= mb_strimwidth(htmlspecialchars($dish['name']), 0, 25, '...') ?></h5>
                         <div class="kal">
                             <div class="k">
-                                <p><?= (int)$dish['kcal'] ?></p>
-                                <p>ккал</p>
+                                <p id="or"><?= (int)$dish['kcal'] ?></p>
+                                <p id="s">ккал</p>
                             </div>
                             <div class="k">
-                                <p><?= (int)$dish['protein'] ?></p>
-                                <p>белков</p>
+                                <p id="si"><?= (int)$dish['protein'] ?></p>
+                                <p id="s">белков</p>
                             </div>
                             <div class="k">
-                                <p><?= (int)$dish['fat'] ?></p>
-                                <p>жиров</p>
+                                <p id="kr"><?= (int)$dish['fat'] ?></p>
+                                <p id="s">жиров</p>
                             </div>
                             <div class="k">
-                                <p><?= (int)$dish['carbs'] ?></p>
-                                <p>углеводов</p>
+                                <p id="ze"><?= (int)$dish['carbs'] ?></p>
+                                <p id="s">углеводов</p>
                             </div>
                         </div>
                         <h6><?= number_format($dish['price'], 0, '.', ' ') ?> ₽</h6>

@@ -20,13 +20,13 @@ if (!$dish) {
 $categories = $connect->query("SELECT id, name FROM categories ORDER BY name")->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name        = trim($_POST['name'] ?? '');
-    $kcal        = intval($_POST['kcal'] ?? 0);
-    $protein     = intval($_POST['protein'] ?? 0);
-    $fat         = intval($_POST['fat'] ?? 0);
-    $carbs       = intval($_POST['carbs'] ?? 0);
+    $name = trim($_POST['name'] ?? '');
+    $kcal = intval($_POST['kcal'] ?? 0);
+    $protein = intval($_POST['protein'] ?? 0);
+    $fat = intval($_POST['fat'] ?? 0);
+    $carbs = intval($_POST['carbs'] ?? 0);
     $category_id = intval($_POST['category_id'] ?? 0);
-    $price       = floatval(str_replace(',', '.', $_POST['price'] ?? 0));
+    $price = floatval(str_replace(',', '.', $_POST['price'] ?? 0));
     $description = trim($_POST['description'] ?? '');
     $ingredients = trim($_POST['ingredients'] ?? '');
     $is_available = isset($_POST['is_available']) ? 1 : 0;
@@ -58,12 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
-        $stmt = $connect->prepare("
-            UPDATE dishes 
-            SET name=?, description=?, price=?, image=?, category_id=?, is_available=?, kcal=?, protein=?, fat=?, carbs=?, ingredients=? 
-            WHERE id=?
-        ");
-        
+        $stmt = $connect->prepare("UPDATE dishes SET name=?, description=?, price=?, image=?, category_id=?, is_available=?, kcal=?, protein=?, fat=?, carbs=?, ingredients=? WHERE id=?");
         if ($stmt->execute([$name, $description, $price, $imagePath, $category_id, $is_available, $kcal, $protein, $fat, $carbs, $ingredients, $id])) {
             header('Location: index.php?page=admin_kat_bl');
             exit;
@@ -87,22 +82,22 @@ $val = fn($field) => $_POST[$field] ?? ($dish[$field] ?? '');
 
             <div class="dkal">
                 <div class="dk1">
-                    <label for="kcal">Калорий (ккал) *</label>
+                    <label for="kcal">Калорий (ккал)</label>
                     <input type="number" id="kcal" name="kcal" placeholder="Введите калории"
                         value="<?= htmlspecialchars($val('kcal')) ?>">
                 </div>
                 <div class="dk1">
-                    <label for="protein">Белков *</label>
+                    <label for="protein">Белков</label>
                     <input type="number" id="protein" name="protein" placeholder="Введите белки"
                         value="<?= htmlspecialchars($val('protein')) ?>">
                 </div>
                 <div class="dk1">
-                    <label for="fat">Жиры *</label>
+                    <label for="fat">Жиры</label>
                     <input type="number" id="fat" name="fat" placeholder="Введите жиры"
                         value="<?= htmlspecialchars($val('fat')) ?>">
                 </div>
                 <div class="dk1">
-                    <label for="carbs">Углеводы *</label>
+                    <label for="carbs">Углеводы</label>
                     <input type="number" id="carbs" name="carbs" placeholder="Введите углеводы"
                         value="<?= htmlspecialchars($val('carbs')) ?>">
                 </div>

@@ -8,22 +8,33 @@ global $connect;
 $errors = [];
 
 if (isset($_POST['add_promo'])) {
-    $code = strtoupper(trim($_POST['code'] ?? ''));
-    $discount_type = $_POST['discount_type'] ?? '';
-    $discount_value = floatval(str_replace(',', '.', $_POST['discount_value'] ?? 0));
-    $min_order = floatval(str_replace(',', '.', $_POST['min_order'] ?? 0));
-    $valid_until = $_POST['valid_until'] !== '' ? $_POST['valid_until'] : null;
-    $usage_limit = intval($_POST['usage_limit'] ?? 0);
-    
-    $is_active = isset($_POST['is_active']) ? 1 : 0;
+    $code           = strtoupper(trim($_POST['code'] ?? ''));
+    $discount_type  = $_POST['discount_type'] ?? '';
+    $discount_raw   = trim($_POST['discount_value'] ?? '');
+    $min_order_raw  = trim($_POST['min_order'] ?? '');
+    $valid_until    = $_POST['valid_until'] !== '' ? $_POST['valid_until'] : null;
+    $usage_limit    = $_POST['usage_limit'] !== '' ? intval($_POST['usage_limit']) : null;
+    $is_active      = isset($_POST['is_active']) ? 1 : 0;
+
+    $discount_value = $discount_raw !== '' ? floatval(str_replace(',', '.', $discount_raw)) : 0.0;
+    $min_order      = $min_order_raw !== '' ? floatval(str_replace(',', '.', $min_order_raw)) : 0.0;
 
     if ($code === '') $errors['code'] = 'Введите код промокода';
-    if (!in_array($discount_type, ['percentage', 'fixed'])) $errors['discount_type'] = 'Выберите тип скидки';
-    if ($discount_type === 'percentage' && ($discount_value <= 0 || $discount_value > 100)) {
-        $errors['discount_value'] = 'Процент должен быть от 1 до 100';
+    
+    if (!in_array($discount_type, ['percentage', 'fixed'])) {
+        $errors['discount_type'] = 'Выберите тип скидки';
     }
-    if ($discount_type === 'fixed' && $discount_value <= 0) {
-        $errors['discount_value'] = 'Введите сумму скидки';
+    
+    if ($discount_raw === '') {
+        $errors['discount_value'] = 'Введите размер скидки';
+    } elseif ($discount_type === 'percentage' && ($discount_value <= 0 || $discount_value > 100)) {
+        $errors['discount_value'] = 'Процент должен быть от 1 до 100';
+    } elseif ($discount_type === 'fixed' && $discount_value <= 0) {
+        $errors['discount_value'] = 'Сумма скидки должна быть больше 0';
+    }
+
+    if ($min_order_raw === '' || $min_order < 0) {
+        $errors['min_order'] = 'Введите минимальную сумму заказа';
     }
 
     if (empty($errors)) {
@@ -76,19 +87,20 @@ if (isset($_POST['add_promo'])) {
 
             <label for="min_order">Минимальная сумма заказа *</label>
             <input type="number" id="min_order" name="min_order" placeholder="1500" step="0.01"
-                value="<?= htmlspecialchars($_POST['min_order'] ?? '0') ?>">
+                value="<?= htmlspecialchars($_POST['min_order'] ?? '') ?>">
+            <?php if(!empty($errors['min_order'])): ?><p class="error"><?= $errors['min_order'] ?></p><?php endif; ?>
 
             <label for="valid_until">Действует до (необязательно)</label>
             <input type="date" id="valid_until" name="valid_until"
                 value="<?= htmlspecialchars($_POST['valid_until'] ?? '') ?>">
 
-            <label for="usage_limit">Лимит использований (0 = безлимит)</label>
+            <label for="usage_limit">Лимит использований (пусто = безлимит)</label>
             <input type="number" id="usage_limit" name="usage_limit" placeholder="0"
-                value="<?= htmlspecialchars($_POST['usage_limit'] ?? '0') ?>">
+                value="<?= htmlspecialchars($_POST['usage_limit'] ?? '') ?>">
 
             <label>
                 <input style="max-height:30px;" type="checkbox" name="is_active" value="1"
-                    <?= isset($_POST['is_active']) ? 'checked' : '' ?>> Активен
+                    <?= (!isset($_POST['add_promo']) || isset($_POST['is_active'])) ? 'checked' : '' ?>> Активен
             </label>
 
             <button type="submit" class="dob_bl_a" name="add_promo">Добавить</button>

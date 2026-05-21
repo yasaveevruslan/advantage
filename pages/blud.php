@@ -22,33 +22,63 @@ if (!$dish || $dish['is_available'] == 0) {
           </div>';
     exit;
 }
+
+$isFav = false;
+if (isset($_SESSION['user_id'])) {
+    $f = $connect->prepare("SELECT id FROM favorites WHERE user_id = ? AND item_type = 'dish' AND item_id = ?");
+    $f->execute([$_SESSION['user_id'], $dish['id']]);
+    $isFav = (bool) $f->fetch();
+}
 ?>
 
 <p id="hleb" class="container">
-    <a href="index.php">Главная</a> > 
-    <a href="index.php?page=catalog_blud">Каталог блюд</a> > 
-    <?= htmlspecialchars($dish['category_name'] ?? 'Без категории') ?> > 
+    <a href="index.php">Главная</a> >
+    <a href="index.php?page=catalog_blud">Каталог блюд</a> >
+    <?= htmlspecialchars($dish['category_name'] ?? 'Без категории') ?> >
     <?= htmlspecialchars($dish['name']) ?>
 </p>
 
 <div class="item container">
     <div class="i_img">
-        <img src="bl/<?= htmlspecialchars($dish['image'] ?? 'placeholder.png') ?>" alt="<?= htmlspecialchars($dish['name']) ?>">
+        <img src="bl/<?= htmlspecialchars($dish['image'] ?? 'placeholder.png') ?>"
+            alt="<?= htmlspecialchars($dish['name']) ?>">
     </div>
     <div class="item_txt">
         <div class="bl1">
             <p id="sbal"><?= htmlspecialchars($dish['category_name'] ?? 'Без категории') ?></p>
             <h5><?= htmlspecialchars($dish['name']) ?></h5>
             <div class="i_kal">
-                <div class="i_k"><p id="i_or"><?= (int)$dish['kcal'] ?></p><p>ккал</p></div>
-                <div class="i_k"><p id="i_si"><?= (int)$dish['protein'] ?></p><p>белков</p></div>
-                <div class="i_k"><p id="i_kr"><?= (int)$dish['fat'] ?></p><p>жиров</p></div>
-                <div class="i_k"><p id="i_ze"><?= (int)$dish['carbs'] ?></p><p>углеводов</p></div>
+                <div class="i_k">
+                    <p id="i_or"><?= (int)$dish['kcal'] ?></p>
+                    <p>ккал</p>
+                </div>
+                <div class="i_k">
+                    <p id="i_si"><?= (int)$dish['protein'] ?></p>
+                    <p>белков</p>
+                </div>
+                <div class="i_k">
+                    <p id="i_kr"><?= (int)$dish['fat'] ?></p>
+                    <p>жиров</p>
+                </div>
+                <div class="i_k">
+                    <p id="i_ze"><?= (int)$dish['carbs'] ?></p>
+                    <p>углеводов</p>
+                </div>
             </div>
             <p id="pr"><?= number_format($dish['price'], 0, '.', ' ') ?> ₽</p>
             <div class="i_knop">
                 <a href="php/add_to_cart.php?id=<?= $dish['id'] ?>&type=dish">В корзину</a>
-                <img src="image/izb.svg" alt="Избранное" class="add-favorite" data-id="<?= $dish['id'] ?>">
+                <form method="POST" action="php/toggle_favorite.php">
+                    <input type="hidden" name="type" value="dish">
+                    <input type="hidden" name="id" value="<?= $dish['id'] ?>">
+                    <button type="submit" style='border:none' class="add-favorite">
+                        <?php if ($isFav): ?>
+                        <img src="image/izb2.svg" alt="В избранном" >
+                        <?php else: ?>
+                        <img src="image/izb.svg" alt="Добавить в избранное" class="add-favorite">
+                        <?php endif; ?>
+                    </button>
+                </form>
             </div>
         </div>
 

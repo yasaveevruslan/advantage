@@ -1,3 +1,16 @@
+<?php
+global $connect;
+
+$stmt = $connect->prepare("
+    SELECT id, name, image, kcal, protein, fat, carbs, price 
+    FROM dishes 
+    WHERE is_available = 1 
+    ORDER BY id DESC 
+    LIMIT 4
+");
+$stmt->execute();
+$featuredDishes = $stmt->fetchAll();
+?>
 <!-- баннер -->
 <div class="banner">
     <div class="slider">
@@ -16,7 +29,7 @@
         <div class="banner_text container">
             <h1>Доставка правильного питания</h1>
             <p>Подарите себе стройность, крепкий иммунитет и энергию со здоровым питанием</p>
-            <a href="">Заказать</a>
+            <a href="?page=catalog_blud">Заказать</a>
         </div>
     </div>
 </div>
@@ -52,7 +65,7 @@
         на первый заказ уже</h4>
     <div class="prom">
         <p>Промокод</p>
-        <a href="">Вкусно</a>
+        <a>Вкусно</a>
     </div>
     <h6>При заказе от 2 500 ₽</h6>
 </div>
@@ -61,114 +74,46 @@
 <div class="new container">
     <h3>Новинки</h3>
     <div class="nowinki">
+        <?php if (!empty($featuredDishes)): ?>
+        <?php foreach ($featuredDishes as $dish): ?>
         <div class="new1">
-            <img src="image/new1.png" alt="">
-            <h5>Куриный шницель с мака...</h5>
+            <a href="index.php?page=blud&id=<?= $dish['id'] ?>" style="background-color: transparent; padding: 0px;">
+                <img src="bl/<?= htmlspecialchars($dish['image'] ?: 'placeholder.png') ?>"
+                    alt="<?= htmlspecialchars($dish['name']) ?>">
+            </a>
+            <h5>
+                <?= mb_strimwidth(htmlspecialchars($dish['name']), 0, 25, '...') ?>
+            </h5>
 
             <div class="kal">
                 <div class="k">
-                    <p id="or">450</p>
+                    <p id="or"><?= (int)$dish['kcal'] ?></p>
                     <p id="s">ккал</p>
                 </div>
                 <div class="k">
-                    <p id="si">35</p>
+                    <p id="si"><?= (int)$dish['protein'] ?></p>
                     <p id="s">белков</p>
                 </div>
                 <div class="k">
-                    <p id="kr">15</p>
+                    <p id="kr"><?= (int)$dish['fat'] ?></p>
                     <p id="s">жиров</p>
                 </div>
                 <div class="k">
-                    <p id="ze">40</p>
+                    <p id="ze"><?= (int)$dish['carbs'] ?></p>
                     <p id="s">углеводов</p>
                 </div>
             </div>
 
-            <h6>890 ₽</h6>
-            <a href="">В корзину</a>
+            <h6><?= number_format($dish['price'], 0, '.', ' ') ?> ₽</h6>
 
+            <a href="php/add_to_cart.php?id=<?= $dish['id'] ?>&type=dish">
+                В корзину
+            </a>
         </div>
-        <div class="new1">
-            <img src="image/new2.png" alt="">
-            <h5>Куриный шницель с мака...</h5>
-
-            <div class="kal">
-                <div class="k">
-                    <p id="or">450</p>
-                    <p id="s">ккал</p>
-                </div>
-                <div class="k">
-                    <p id="si">35</p>
-                    <p id="s">белков</p>
-                </div>
-                <div class="k">
-                    <p id="kr">15</p>
-                    <p id="s">жиров</p>
-                </div>
-                <div class="k">
-                    <p id="ze">40</p>
-                    <p id="s">углеводов</p>
-                </div>
-            </div>
-
-            <h6>890 ₽</h6>
-            <a href="">В корзину</a>
-
-        </div>
-        <div class="new1">
-            <img src="image/new3.png" alt="">
-            <h5>Куриный шницель с мака...</h5>
-
-            <div class="kal">
-                <div class="k">
-                    <p id="or">450</p>
-                    <p id="s">ккал</p>
-                </div>
-                <div class="k">
-                    <p id="si">35</p>
-                    <p id="s">белков</p>
-                </div>
-                <div class="k">
-                    <p id="kr">15</p>
-                    <p id="s">жиров</p>
-                </div>
-                <div class="k">
-                    <p id="ze">40</p>
-                    <p id="s">углеводов</p>
-                </div>
-            </div>
-
-            <h6>890 ₽</h6>
-            <a href="">В корзину</a>
-
-        </div>
-        <div class="new1">
-            <img src="image/new4.png" alt="">
-            <h5>Куриный шницель с мака...</h5>
-
-            <div class="kal">
-                <div class="k">
-                    <p id="or">450</p>
-                    <p id="s">ккал</p>
-                </div>
-                <div class="k">
-                    <p id="si">35</p>
-                    <p id="s">белков</p>
-                </div>
-                <div class="k">
-                    <p id="kr">15</p>
-                    <p id="s">жиров</p>
-                </div>
-                <div class="k">
-                    <p id="ze">40</p>
-                    <p id="s">углеводов</p>
-                </div>
-            </div>
-
-            <h6>890 ₽</h6>
-            <a href="">В корзину</a>
-
-        </div>
+        <?php endforeach; ?>
+        <?php else: ?>
+        <p style="padding:20px;color:#666;">Блюда пока не добавлены</p>
+        <?php endif; ?>
     </div>
 </div>
 

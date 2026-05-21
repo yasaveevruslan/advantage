@@ -5,17 +5,14 @@ global $connect;
 $userId = $_SESSION['user_id'] ?? null;
 $sessionId = $userId ? null : session_id();
 
-// Обработка действий (POST)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['update_cart']) && !empty($_POST['qty'])) {
         foreach ($_POST['qty'] as $cartId => $qty) {
             $qty = max(0, intval($qty));
             if ($qty <= 0) {
-                $connect->prepare("DELETE FROM cart WHERE id = ? AND (user_id = ? OR session_id = ?)")
-                        ->execute([$cartId, $userId, $sessionId]);
+                $connect->prepare("DELETE FROM cart WHERE id = ? AND (user_id = ? OR session_id = ?)")->execute([$cartId, $userId, $sessionId]);
             } else {
-                $connect->prepare("UPDATE cart SET quantity = ? WHERE id = ? AND (user_id = ? OR session_id = ?)")
-                        ->execute([$qty, $cartId, $userId, $sessionId]);
+                $connect->prepare("UPDATE cart SET quantity = ? WHERE id = ? AND (user_id = ? OR session_id = ?)")->execute([$qty, $cartId, $userId, $sessionId]);
             }
         }
         header('Location: ' . $_SERVER['REQUEST_URI']);
@@ -24,8 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (isset($_POST['remove_item'])) {
         $cartId = intval($_POST['cart_id'] ?? 0);
-        $connect->prepare("DELETE FROM cart WHERE id = ? AND (user_id = ? OR session_id = ?)")
-                ->execute([$cartId, $userId, $sessionId]);
+        $connect->prepare("DELETE FROM cart WHERE id = ? AND (user_id = ? OR session_id = ?)")->execute([$cartId, $userId, $sessionId]);
         header('Location: ' . $_SERVER['REQUEST_URI']);
         exit;
     }
@@ -39,15 +35,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// ✅ ЗАПРОС: добавляем поля КБЖУ для блюд (d.kcal, d.protein...)
 $sql = "SELECT c.id as cart_id, c.item_type, c.item_id, c.quantity, c.added_at,
-               COALESCE(s.name, d.name) as name,
-               COALESCE(s.price, d.price) as price,
-               COALESCE(s.image, d.image) as image,
-               COALESCE(s.is_available, d.is_available) as is_available,
+               COALESCE(sd.name, d.name) as name,
+               COALESCE(sd.price, d.price) as price,
+               COALESCE(sd.image, d.image) as image,
+               COALESCE(sd.is_available, d.is_available) as is_available,
                d.kcal, d.protein, d.fat, d.carbs
         FROM cart c
-        LEFT JOIN sets s ON c.item_type = 'set' AND c.item_id = s.id
+        LEFT JOIN set_dishes sd ON c.item_type = 'set' AND c.item_id = sd.id
         LEFT JOIN dishes d ON c.item_type = 'dish' AND c.item_id = d.id
         WHERE (c.user_id = ? OR c.session_id = ?)
         ORDER BY c.added_at DESC";
@@ -68,7 +63,6 @@ foreach ($rows as $row) {
         'price' => $row['price'],
         'image' => $row['image'],
         'quantity' => $row['quantity'],
-        // ✅ Добавляем КБЖУ для блюд
         'kcal' => $row['kcal'] ?? 0,
         'protein' => $row['protein'] ?? 0,
         'fat' => $row['fat'] ?? 0,
@@ -76,17 +70,16 @@ foreach ($rows as $row) {
         'added_at' => $row['added_at']
     ];
     
-    // Для наборов подгружаем состав и считаем общие КБЖУ
     if ($row['item_type'] === 'set') {
         $stmtDetails = $connect->prepare("
-            SELECT d.name, d.kcal, d.protein, d.fat, d.carbs, sd.quantity,
-                   d.kcal * sd.quantity as item_kcal,
-                   d.protein * sd.quantity as item_protein,
-                   d.fat * sd.quantity as item_fat,
-                   d.carbs * sd.quantity as item_carbs
-            FROM set_dishes sd
-            JOIN dishes d ON sd.dish_id = d.id
-            WHERE sd.set_id = ?
+            SELECT d.name, d.kcal, d.protein, d.fat, d.carbs, sc.quantity,
+                   d.kcal * sc.quantity as item_kcal,
+                   d.protein * sc.quantity as item_protein,
+                   d.fat * sc.quantity as item_fat,
+                   d.carbs * sc.quantity as item_carbs
+            FROM set_composition sc
+            JOIN dishes d ON sc.dish_id = d.id
+            WHERE sc.set_dish_id = ?
         ");
         $stmtDetails->execute([$row['item_id']]);
         $dishes = $stmtDetails->fetchAll();
@@ -102,6 +95,7 @@ foreach ($rows as $row) {
     
     $cartItems[] = $item;
 }
+
 $cartTotal = 0;
 $totalKcal = $totalProtein = $totalFat = $totalCarbs = 0;
 
@@ -154,12 +148,12 @@ $finalTotal = $cartTotal - $discount;
                             <p>
                                 <?= htmlspecialchars($item['name']) ?>
                                 <?php if ($item['type'] === 'set'): ?>
-                                <small>(набор)</small>
+                                <small style="color:#888;font-size:12px;">(набор)</small>
                                 <?php endif; ?>
                             </p>
 
                             <?php if ($item['type'] === 'set' && !empty($item['details']['dishes'])): ?>
-                            <ul>
+                            <ul style="font-size:12px;color:#666;margin:5px 0 10px;padding-left:20px;">
                                 <?php foreach ($item['details']['dishes'] as $dish): ?>
                                 <li><?= htmlspecialchars($dish['name']) ?> ×<?= $dish['quantity'] ?></li>
                                 <?php endforeach; ?>
@@ -169,36 +163,36 @@ $finalTotal = $cartTotal - $discount;
                             <div class="kal">
                                 <?php if ($item['type'] === 'set' && !empty($item['details'])): ?>
                                 <div class="k">
-                                    <p><?= (int)$item['details']['total_kcal'] ?></p>
+                                    <p id="or"><?= (int)$item['details']['total_kcal'] ?></p>
                                     <p id="s">ккал</p>
                                 </div>
                                 <div class="k">
-                                    <p><?= (int)$item['details']['total_protein'] ?></p>
+                                    <p id="si"><?= (int)$item['details']['total_protein'] ?></p>
                                     <p id="s">белков</p>
                                 </div>
                                 <div class="k">
-                                    <p><?= (int)$item['details']['total_fat'] ?></p>
+                                    <p id="kr"><?= (int)$item['details']['total_fat'] ?></p>
                                     <p id="s">жиров</p>
                                 </div>
                                 <div class="k">
-                                    <p><?= (int)$item['details']['total_carbs'] ?></p>
+                                    <p id="ze"><?= (int)$item['details']['total_carbs'] ?></p>
                                     <p id="s">углеводов</p>
                                 </div>
                                 <?php else: ?>
                                 <div class="k">
-                                    <p><?= (int)$item['kcal'] ?></p>
+                                    <p id="or"><?= (int)$item['kcal'] ?></p>
                                     <p id="s">ккал</p>
                                 </div>
                                 <div class="k">
-                                    <p><?= (int)$item['protein'] ?></p>
+                                    <p id="si"><?= (int)$item['protein'] ?></p>
                                     <p id="s">белков</p>
                                 </div>
                                 <div class="k">
-                                    <p><?= (int)$item['fat'] ?></p>
+                                    <p id="kr"><?= (int)$item['fat'] ?></p>
                                     <p id="s">жиров</p>
                                 </div>
                                 <div class="k">
-                                    <p><?= (int)$item['carbs'] ?></p>
+                                    <p id="ze"><?= (int)$item['carbs'] ?></p>
                                     <p id="s">углеводов</p>
                                 </div>
                                 <?php endif; ?>
@@ -206,10 +200,12 @@ $finalTotal = $cartTotal - $discount;
 
                             <h5><?= number_format($item['price'] * $item['quantity'], 0, '.', ' ') ?> ₽</h5>
 
-                            <div>
+                            <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
                                 <input type="number" name="qty[<?= $item['cart_id'] ?>]"
-                                    value="<?= $item['quantity'] ?>" min="1" max="99">
-                                <button type="submit" name="remove_item" value="1">
+                                    value="<?= $item['quantity'] ?>" min="1" max="99"
+                                    style="width:60px;padding:5px;text-align:center;border:1px solid #ddd;border-radius:4px;">
+                                <button type="submit" name="remove_item" value="1"
+                                    style="background:none;border:none;color:#f44336;cursor:pointer;font-size:18px;">
                                     ⨉
                                 </button>
                                 <input type="hidden" name="cart_id" value="<?= $item['cart_id'] ?>">
@@ -256,20 +252,28 @@ $finalTotal = $cartTotal - $discount;
 
                     <div class="kor_sum">
                         <?php if ($discount > 0): ?>
-                        <p>
+                        <p style="text-decoration:line-through;color:#999;font-size:14px;">
                             <?= number_format($cartTotal, 0, '.', ' ') ?> ₽
                         </p>
-                        <p>Скидка: -<?= number_format($discount, 0, '.', ' ') ?> ₽</p>
+                        <p style="color:#4CAF50;font-size:14px;">Скидка: -<?= number_format($discount, 0, '.', ' ') ?> ₽
+                        </p>
                         <?php endif; ?>
                         <p>Сумма заказа</p>
                         <h4><?= number_format($finalTotal, 0, '.', ' ') ?> ₽</h4>
                     </div>
 
-                    <a href="">
+                    <a href="index.php?page=zakaz_dost">
                         К оформлению заказа
                     </a>
                 </div>
             </div>
+        </div>
+
+        <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
+            <button type="submit" name="update_cart"
+                style="background:#f5f5f5;border:none;padding:10px 20px;border-radius:5px;cursor:pointer;">Обновить</button>
+            <a href="index.php?page=catalog_blud" style="color:#666;text-decoration:none;padding:10px 20px;">←
+                Продолжить покупки</a>
         </div>
     </form>
     <?php endif; ?>

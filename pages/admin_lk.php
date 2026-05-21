@@ -6,16 +6,17 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'admin') 
 
 global $connect;
 
-if (isset($_POST['update_status']) && isset($_POST['order_id'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status']) && isset($_POST['order_id'])) {
     $orderId = intval($_POST['order_id']);
     $newStatus = $_POST['status'] ?? '';
-    $allowed = ['new', 'preparing', 'courier', 'delivered', 'cancelled'];
+    
+    $allowed = ['new', 'confirmed', 'preparing', 'delivering', 'completed', 'canceled'];
     
     if (in_array($newStatus, $allowed)) {
         $stmt = $connect->prepare("UPDATE `orders` SET status = ? WHERE id = ?");
         $stmt->execute([$newStatus, $orderId]);
         $_SESSION['success'] = 'Статус заказа обновлён';
-        echo '<script>window.location.replace("index.php?page=admin_lk");</script>';
+        header('Location: index.php?page=admin_lk');
         exit;
     }
 }
@@ -31,12 +32,12 @@ $stmt = $connect->prepare("
         u.full_name as user_name, u.phone as user_phone,
         oi.id as item_id, oi.item_type, oi.quantity, oi.price_at_time,
         d.name as dish_name, d.image as dish_image,
-        s.name as set_name, s.image as set_image
+        sd.name as set_name, sd.image as set_image
     FROM `orders` o
     JOIN users u ON o.user_id = u.id
     LEFT JOIN order_items oi ON o.id = oi.order_id
     LEFT JOIN dishes d ON oi.item_type = 'dish' AND oi.item_id = d.id
-    LEFT JOIN `sets` s ON oi.item_type = 'set' AND oi.item_id = s.id
+    LEFT JOIN set_dishes sd ON oi.item_type = 'set' AND oi.item_id = sd.id
     $where
     ORDER BY o.order_date DESC
 ");
@@ -64,22 +65,25 @@ foreach ($rows as $row) {
     
     if ($row['item_id']) {
         $orders[$oid]['items'][] = [
-            'name'  => $row['set_name'] ?? $row['dish_name'] ?? 'Товар удалён',
-            'image' => $row['set_image'] ?? $row['dish_image'],
-            'quantity' => $row['quantity'],
-            'price' => $row['price_at_time']
+            'name'       => $row['set_name'] ?? $row['dish_name'] ?? 'Товар удалён',
+            'image'      => $row['set_image'] ?? $row['dish_image'],
+            'item_type'  => $row['item_type'],
+            'quantity'   => $row['quantity'],
+            'price'      => $row['price_at_time']
         ];
     }
 }
 
 $statusConfig = [
-    'new' => ['text' => 'Новый', 'color' => '#94D201'],
-    'preparing' => ['text' => 'Готовится', 'color' => '#2196F3'],
-    'courier' => ['text' => 'Передан курьеру', 'color' => '#FF9800'],
-    'delivered' => ['text' => 'Доставлен', 'color' => '#4CAF50'],
-    'cancelled' => ['text' => 'Отменён', 'color' => '#f44336'],
+    'new' => ['text' => 'Новый', 'color' => '#2196F3'],
+    'confirmed' => ['text' => 'Подтверждён', 'color' => '#00BCD4'],
+    'preparing' => ['text' => 'Готовится', 'color' => '#FF9800'],
+    'delivering' => ['text' => 'Передан курьеру', 'color' => '#9C27B0'],
+    'completed' => ['text' => 'Доставлен', 'color' => '#4CAF50'],
+    'canceled' => ['text' => 'Отменён', 'color' => '#f44336'],
 ];
 ?>
+
 <div class="lich container">
     <div class="l_v">
         <div class="l_v_panel">
@@ -91,10 +95,12 @@ $statusConfig = [
 
     <div class="lk container">
         <div class="lk_filter">
-            <a href="index.php?page=admin_lk" id="<?= ($page === 'admin_lk') ? 'fil' : '' ?>">Заказы</a>
-            <a href="index.php?page=admin_lk_otz" id="<?= ($page === 'admin_lk_otz') ? 'fil' : '' ?>">Отзывы</a>
+            <a href="index.php?page=admin_lk"
+                id="<?= (!isset($page) || $page === 'admin_lk') ? 'fil' : '' ?>">Заказы</a>
+            <a href="index.php?page=admin_lk_otz"
+                id="<?= (isset($page) && $page === 'admin_lk_otz') ? 'fil' : '' ?>">Отзывы</a>
             <a href="index.php?page=admin_lk_promocod"
-                id="<?= ($page === 'admin_lk_promocod') ? 'fil' : '' ?>">Промокоды</a>
+                id="<?= (isset($page) && $page === 'admin_lk_promocod') ? 'fil' : '' ?>">Промокоды</a>
         </div>
     </div>
 </div>
@@ -104,20 +110,17 @@ $statusConfig = [
 
     <div class="navigat">
         <a href="index.php?page=admin_lk" class="<?= $statusFilter === 'all' ? 'active' : '' ?>">Все заказы</a>
-        <a href="index.php?page=admin_lk&status=new" class="<?= $statusFilter === 'new' ? 'active' : '' ?>">Новый</a>
-        <a href="index.php?page=admin_lk&status=preparing"
-            class="<?= $statusFilter === 'preparing' ? 'active' : '' ?>">Готовится</a>
-        <a href="index.php?page=admin_lk&status=courier"
-            class="<?= $statusFilter === 'courier' ? 'active' : '' ?>">Передан курьеру</a>
-        <a href="index.php?page=admin_lk&status=delivered"
-            class="<?= $statusFilter === 'delivered' ? 'active' : '' ?>">Доставлен</a>
-        <a href="index.php?page=admin_lk&status=cancelled"
-            class="<?= $statusFilter === 'cancelled' ? 'active' : '' ?>">Отменён</a>
+        <?php foreach ($statusConfig as $key => $cfg): ?>
+        <a href="index.php?page=admin_lk&status=<?= $key ?>" class="<?= $statusFilter === $key ? 'active' : '' ?>">
+            <?= $cfg['text'] ?>
+        </a>
+        <?php endforeach; ?>
     </div>
 
     <?php if (empty($orders)): ?>
     <p class="null2" style="text-align:center;padding:30px;color:#666;">Заказов пока нет</p>
     <?php else: ?>
+
     <?php foreach ($orders as $order): 
             $status = $order['status'];
             $cfg = $statusConfig[$status] ?? $statusConfig['new'];
@@ -126,7 +129,7 @@ $statusConfig = [
         <div class="nom_z">
             <div class="nom1">
                 <p>Заказ #<?= str_pad($order['id'], 4, '0', STR_PAD_LEFT) ?></p>
-                <p><?= date('d.m.Y в H:i', strtotime($order['order_date'])) ?></p>
+                <p><?= date('d.m.Y \в H:i', strtotime($order['order_date'])) ?></p>
                 <p style="font-size:13px;color:#666;">
                     Клиент: <?= htmlspecialchars($order['user_name']) ?>
                     (<?= htmlspecialchars($order['user_phone']) ?>)
@@ -134,15 +137,20 @@ $statusConfig = [
             </div>
             <p style="color:<?= $cfg['color'] ?>;font-weight:600;"><?= $cfg['text'] ?></p>
         </div>
-        <?php foreach ($order['items'] as $item): ?>
+
+        <?php foreach ($order['items'] as $item): 
+            $imgFolder = ($item['item_type'] === 'set') ? 'na/' : 'bl/';
+            $imgSrc = $item['image'] ? $imgFolder . $item['image'] : 'placeholder.png';
+        ?>
         <div class="gips">
-            <img src="<?= htmlspecialchars($item['image'] ?: '/image/new1.png') ?>" alt="">
+            <img src="<?= htmlspecialchars($imgSrc) ?>" alt="<?= htmlspecialchars($item['name']) ?>">
             <div class="gips_txt">
                 <p><?= htmlspecialchars($item['name']) ?> × <?= $item['quantity'] ?></p>
                 <h5><?= number_format($item['price'] * $item['quantity'], 0, '.', ' ') ?> ₽</h5>
             </div>
         </div>
         <?php endforeach; ?>
+
         <div class="inf_zak">
             <div class="iz1">
                 <div class="sp_o">
@@ -165,7 +173,8 @@ $statusConfig = [
                 <h6><?= number_format($order['final_amount'], 0, '.', ' ') ?> ₽</h6>
             </div>
         </div>
-        <?php if (!in_array($status, ['delivered', 'cancelled'])): ?>
+
+        <?php if (!in_array($status, ['completed', 'canceled'])): ?>
         <button type="button" class="admin_edit_zakaz" data-order-id="<?= $order['id'] ?>"
             data-current-status="<?= $status ?>">
             Изменить статус заказа
@@ -175,6 +184,7 @@ $statusConfig = [
     <?php endforeach; ?>
     <?php endif; ?>
 </div>
+
 <div id="modalOverlay" class="modal-overlay">
     <div class="modal-container">
         <div class="modal-header">
@@ -182,86 +192,61 @@ $statusConfig = [
             <button class="modal-close" id="modalCloseBtn">&times;</button>
         </div>
         <div class="modal-body">
-            <div class="dob_bl">
-                <form action="" class="zkz">
-                    <label for="">Статус</label>
-                    <select name="kat" id="kat">
-                        <option value="">Новый</option>
-                        <option value="">Готовится</option>
-                        <option value="">Передан курьеру</option>
-                        <option value="">Доставлен</option>
-                        <option value="">Отменён</option>
-                    </select>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="modal-btn modal-btn-cancel" id="modalCancelBtn">Отмена</button>
-                <button class="modal-btn modal-btn-edit" id="modalEditBtn">Изменить</button>
-            </div>
+            <form method="POST" id="statusForm">
+                <input type="hidden" name="order_id" id="modalOrderId">
+                <input type="hidden" name="update_status" value="1">
+
+                <label for="statusSelect">Новый статус</label>
+                <select name="status" id="statusSelect" required
+                    style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;margin:10px 0;">
+                    <option value="new">Новый</option>
+                    <option value="confirmed">Подтверждён</option>
+                    <option value="preparing">Готовится</option>
+                    <option value="delivering">Передан курьеру</option>
+                    <option value="completed">Доставлен</option>
+                    <option value="canceled">Отменён</option>
+                </select>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="modal-btn modal-btn-cancel" id="modalCancelBtn">Отмена</button>
+            <button type="submit" form="statusForm" class="modal-btn modal-btn-edit">Сохранить</button>
         </div>
     </div>
-
-</div>
 </div>
 
 <script>
-const modal = document.getElementById('modalOverlay');
-const closeBtn = document.getElementById('modalCloseBtn');
-const cancelBtn = document.getElementById('modalCancelBtn');
-const editBtn = document.getElementById('modalEditBtn');
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('modalOverlay');
+    const closeBtn = document.getElementById('modalCloseBtn');
+    const cancelBtn = document.getElementById('modalCancelBtn');
+    const statusSelect = document.getElementById('statusSelect');
+    const modalOrderId = document.getElementById('modalOrderId');
 
-const editIcon = document.querySelector('.admin_edit_zakaz');
+    document.querySelectorAll('.admin_edit_zakaz').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const orderId = this.dataset.orderId;
+            const currentStatus = this.dataset.currentStatus;
 
-function openModal() {
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden'; // блокируем прокрутку страницы
-}
-
-// Функция закрытия модального окна
-function closeModal() {
-    modal.classList.remove('active');
-    document.body.style.overflow = ''; // возвращаем прокрутку
-}
-
-// Обработчик для подтверждения удаления
-function onConfirmEdit() {
-    console.log('Заказ изменен');
-    // Здесь можно добавить реальное удаление:
-    // Например, отправить запрос на сервер или удалить блок с товаром
-    alert('Заказ успешно изменен!');
-    closeModal();
-
-    // Дополнительно: можно удалить весь блок с товаром со страницы
-    // const itemBlock = document.querySelector('.item');
-    // if (itemBlock) itemBlock.remove();
-}
-
-// Открываем модальное окно при клике на картинку (иконку удаления)
-if (editIcon) {
-    editIcon.addEventListener('click', function(e) {
-        e.preventDefault();
-        openModal();
+            modalOrderId.value = orderId;
+            statusSelect.value = currentStatus;
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
     });
-}
 
-// Вешаем обработчики на крестик и кнопку "Отмена"
-closeBtn.addEventListener('click', closeModal);
-cancelBtn.addEventListener('click', closeModal);
-
-// Подтверждение удаления
-editBtn.addEventListener('click', onConfirmEdit);
-
-// Закрытие по клику на затемненную область (оверлей)
-modal.addEventListener('click', function(e) {
-    if (e.target === modal) {
-        closeModal();
+    function closeModal() {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
     }
-});
 
-// Закрытие по клавише ESC
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && modal.classList.contains('active')) {
-        closeModal();
-    }
+    closeBtn?.addEventListener('click', closeModal);
+    cancelBtn?.addEventListener('click', closeModal);
+    modal?.addEventListener('click', function(e) {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal?.classList.contains('active')) closeModal();
+    });
 });
 </script>
